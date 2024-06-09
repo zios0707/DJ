@@ -24,6 +24,8 @@
 
     let brushMode = false
 
+    const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+
     function playNote(note) {
 
         if (typeof note != "object" || note.length === 0) {
@@ -37,8 +39,6 @@
         }else {
             pitch = note.dataset.pitch
         }
-
-        const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
         synth.triggerAttackRelease(pitch, "8n")
     }

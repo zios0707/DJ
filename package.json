@@ -1,13 +1,8 @@
 {
-  "homepage": "https://zios0707.github.io/DJ",
   "dependencies": {
     "tone": "^15.0.4"
   },
   "devDependencies": {
     "gh-pages": "^6.1.1"
-  },
-  "scripts": {
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
   }
 }

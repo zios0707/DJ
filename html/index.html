@@ -6,8 +6,9 @@
     <link rel="stylesheet" href="../css/index.css" />
 </head>
 <body>
-<script src="http://unpkg.com/tone"></script>
 <script>
+    import * as Tone from 'tone';
+
     const pitch = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
     const trackInfos = [];
@@ -24,11 +25,12 @@
 
     function playNote(note) {
 
-        if (typeof note != "object" || note.length == 0) {
+        if (typeof note != "object" || note.length === 0) {
             return
         }
 
-        let pitch = ""
+        let pitch
+
         if (Array.isArray(note)) {
             pitch = note.map(note => note.dataset.pitch)
         }else {
@@ -37,9 +39,7 @@
 
         const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
-        const now = Tone.now()
         synth.triggerAttackRelease(pitch, "8n")
-
     }
 
     function saveNote(note) {
@@ -64,8 +64,8 @@
         const isWhiteNote = [0, 2, 4, 6, 7, 9, 11].includes(y % 12)
 
         note.classList.add(isWhiteNote ? 'white' : 'black')
-        note.classList.add((x % 4 == 3) ? 'last' : 'normal')
-        note.classList.add((y % 12 == 0) ? 'end' : 'nothin')
+        note.classList.add((x % 4 === 3) ? 'last' : 'normal')
+        note.classList.add((y % 12 === 0) ? 'end' : 'nothing')
 
         note.dataset.pitch = `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
         note.dataset.x = x
@@ -73,7 +73,7 @@
         note.addEventListener('mousedown', () => {
 
             if (brushMode) {
-                if (trackInfos[note.dataset.x].indexOf(note) == -1) {
+                if (trackInfos[note.dataset.x].indexOf(note) === -1) {
                     playNote(note)
                     saveNote(note)
                 }else {
@@ -84,7 +84,7 @@
 
         note.addEventListener('dblclick', () => {
             if (!brushMode) {
-                if (trackInfos[note.dataset.x].indexOf(note) == -1) {
+                if (trackInfos[note.dataset.x].indexOf(note) === -1) {
                     playNote(note)
                     saveNote(note)
                 }else {
@@ -101,7 +101,7 @@
         keyNote.classList.add(
             'key',
             ([0, 2, 4, 6, 7, 9, 11].includes(index)) ? 'white' : 'black',
-            ([0, 7].includes(index)) ? 'side' : 'nothin'
+            ([0, 7].includes(index)) ? 'side' : 'nothing'
         )
 
         keyNote.dataset.pitch = `${pitch[11 - index] + scale}`
@@ -158,7 +158,7 @@
         deleteButton.classList.add('deleteLayer')
 
         deleteButton.addEventListener('click', () => {
-            if(layer.id != 'selectedLayer') {
+            if(layer.id !== 'selectedLayer') {
                 layer.remove()
                 deleteLayerQueue.push(layer.dataset.layer)
             }
@@ -229,18 +229,18 @@
                 // 위치표
                 const location = document.createElement("div")
                 location.classList.add('location')
-                if (k == 0) {
+                if (k === 0) {
                     const line = document.createElement("img")
                     line.src = "../media/locationLine.svg"
                     line.alt = "위치 라인"
                     const text = document.createElement("div")
-                    text.innerText = o
+                    text.innerText = o.toString()
 
                     location.appendChild(line)
                     location.appendChild(text)
                 }
 
-                location.dataset.loc = k + o * 4
+                location.dataset.loc = (k + o * 4).toString()
                 navigater.appendChild(location)
             }
         }
@@ -317,7 +317,7 @@
         let isPlaying = false;
         let isIndexed = false;
         window.addEventListener('keydown', (event) => {
-            if (event.key == ' ') {
+            if (event.key === ' ') {
                 event.preventDefault()
                 if (!isPlaying){
                     if (!isIndexed) {
@@ -340,7 +340,7 @@
                 isPlaying = !isPlaying
             }
 
-            if (event.key == 'Escape') {
+            if (event.key === 'Escape') {
                 if (isPlaying) {
                     stop()
 
@@ -354,7 +354,7 @@
                 navigateX = -scrollX + 136
             }
 
-            if (event.key == 'b') {
+            if (event.key === 'b') {
                 brushMode = !brushMode
             }
         })

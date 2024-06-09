@@ -15,8 +15,10 @@
     for (let i = 0; i < 160; i++) trackInfos.push([])
 
     let navigateAt = 0; // trackInfo 에 사용할 인덱스
+    let defaultNavigateAt = 0;
 
     let navigateX = 136;
+    let defaultNavigateX = 136;
 
     let scrollXDiffer = 0
 
@@ -306,9 +308,11 @@
                 }
 
                 navigateX = -window.scrollX + 136 + location.dataset.loc * 45
+                defaultNavigateX = 136 + location.dataset.loc * 45
                 navigate.style.marginLeft = `${navigateX}px`
 
                 navigateAt = location.dataset.loc
+                defaultNavigateAt = navigateAt
                 isIndexed = true
             })
         })
@@ -322,8 +326,9 @@
                     if (!isIndexed) {
                         navigateAt = 0
                         navigateX = -scrollX + 136
-
-                        isIndexed = false
+                    }else {
+                        navigateX = -scrollX + defaultNavigateX
+                        navigateAt = defaultNavigateAt
                     }
 
                     playNavigate()
@@ -332,8 +337,6 @@
                     playMusicId = setInterval(playMusic, 60 / bpm.value * 250)
                 }else {
                     stop()
-
-                    isIndexed = false;
                 }
 
                 isPlaying = !isPlaying
@@ -345,7 +348,7 @@
 
                     isPlaying = !isPlaying
                 }
-                if (!isIndexed) isIndexed = true;
+                if (isIndexed) isIndexed = false;
 
                 navigateAt = 0
 

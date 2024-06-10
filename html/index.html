@@ -10,9 +10,21 @@
 <script>
     const pitch = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
-    const trackInfos = [];
+    const keyBoardMIDIList = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k']
+    const pressedKeyBoard = [false, false, false, false, false, false, false, false, false, false, false, false, false]
 
-    for (let i = 0; i < 160; i++) trackInfos.push([])
+    const trackInfos = {};
+
+    let thisTrackNum = 1;
+
+    function createTrackInfoNewOne(index) {
+
+        const track = []
+
+        for (let i = 0; i < 160; i++) track.push([])
+
+        trackInfos[index] = track
+    }
 
     let navigateAt = 0; // trackInfo 에 사용할 인덱스
     let defaultNavigateAt = 0;
@@ -22,7 +34,11 @@
 
     let scrollXDiffer = 0
 
+    let isPlaying = false;
+    let isIndexed = false;
+
     let brushMode = false
+    let midiMode = false
 
     const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
@@ -44,7 +60,7 @@
     }
 
     function saveNote(note) {
-        const thisArray = trackInfos[note.dataset.x]
+        const thisArray = trackInfos[thisTrackNum][note.dataset.x]
 
         thisArray.push(note)
 
@@ -52,14 +68,14 @@
     }
 
     function deleteNote(note) {
-        const thisArray = trackInfos[note.dataset.x]
+        const thisArray = trackInfos[thisTrackNum][note.dataset.x]
 
         thisArray.splice(thisArray.indexOf(note), 1)
 
         note.classList.remove('inserted')
     }
 
-    function createNote(x, y) {
+    function createNote(x, y, layerInfo) {
         const note = document.createElement('div')
         note.classList.add('note')
         const isWhiteNote = [0, 2, 4, 6, 7, 9, 11].includes(y % 12)
@@ -71,10 +87,13 @@
         note.dataset.pitch = `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
         note.dataset.x = x
 
-        note.addEventListener('mousedown', () => {
+        if (Array.isArray(layerInfo) && layerInfo.filter((thisNote) => thisNote.dataset.pitch === note.dataset.pitch).length !== 0) {
+            note.classList.add('inserted')
+        }
 
+        note.addEventListener('mousedown', () => {
             if (brushMode) {
-                if (trackInfos[note.dataset.x].indexOf(note) === -1) {
+                if (trackInfos[thisTrackNum][note.dataset.x].indexOf(note) === -1) {
                     playNote(note)
                     saveNote(note)
                 }else {
@@ -85,7 +104,7 @@
 
         note.addEventListener('dblclick', () => {
             if (!brushMode) {
-                if (trackInfos[note.dataset.x].indexOf(note) === -1) {
+                if (trackInfos[thisTrackNum][note.dataset.x].indexOf(note) === -1) {
                     playNote(note)
                     saveNote(note)
                 }else {
@@ -148,6 +167,8 @@
 
         const thisNumber = (deleteLayerQueue.length === 0) ? layerCount++ : deleteLayerQueue.shift()
 
+        createTrackInfoNewOne(thisNumber)
+
         const layer = document.createElement("div")
         layer.classList.add('layer')
         layer.dataset.layer = thisNumber
@@ -158,14 +179,32 @@
 
         deleteButton.classList.add('deleteLayer')
 
+        let isDisabled = false
+
         deleteButton.addEventListener('click', () => {
             if(layer.id !== 'selectedLayer') {
                 layer.remove()
+                delete trackInfos[layer.dataset.layer]
                 deleteLayerQueue.push(layer.dataset.layer)
+                isDisabled = true
             }
         })
 
         layer.appendChild(deleteButton)
+
+        layer.addEventListener('click', () => {
+            if (isDisabled) return
+
+            const layerList = document.querySelectorAll(".layer")
+            layerList.forEach((thisLayer) => {
+                thisLayer.id = ""
+            })
+            layer.id = "selectedLayer"
+
+            thisTrackNum = layer.dataset.layer
+
+            rendering(layer)
+        })
 
         const textBox = document.createElement('div')
         textBox.innerText = `트랙 ${thisNumber}`
@@ -187,7 +226,10 @@
     let playMusicId;
 
     function playMusic() {
-        playNote(trackInfos[navigateAt++])
+        Object.values(trackInfos).forEach((track) => {
+            playNote(track[navigateAt])
+        })
+        navigateAt++
     }
 
     function stop() {
@@ -207,6 +249,37 @@
             playNavigateId = setInterval(playNavigate,
                 60 / bpm * 10)
         }
+    }
+
+    function rendering(thisLayer) {
+        const track = trackInfos[thisLayer.dataset.layer]
+
+        const inTrack = document.querySelector("#inTrack")
+        const base = document.querySelector("#base")
+
+        const newBase = document.createElement("div")
+        newBase.id = "base"
+
+        inTrack.removeChild(base)
+
+        inTrack.appendChild(newBase)
+
+
+         for (let o = 0; o < 40; o++) {
+             for (let k = 0; k < 4; k++) {
+                 const noteList = document.createElement('div')
+                 for (let i = 0; i < 7; i++)
+                     for (let j = 0; j < 12; j++)
+                         if (thisLayer === "undefined") {
+                             noteList.appendChild(createNote(k + o * 4, i * 12 + j))
+                         }else {
+                             noteList.appendChild(createNote(k + o * 4, i * 12 + j, track[k + o * 4]))
+                         }
+
+                 noteList.classList.add('noteList')
+                 newBase.appendChild(noteList)
+             }
+         }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -317,8 +390,6 @@
             })
         })
 
-        let isPlaying = false;
-        let isIndexed = false;
         window.addEventListener('keydown', (event) => {
             if (event.key === ' ') {
                 event.preventDefault()
@@ -331,11 +402,14 @@
                         navigateAt = defaultNavigateAt
                     }
 
+                    console.log("play")
                     playNavigate()
                     playNavigateId = setInterval(playNavigate, 60 / bpm.value * 25)
                     playMusic()
                     playMusicId = setInterval(playMusic, 60 / bpm.value * 250)
                 }else {
+
+                    console.log("stop!")
                     stop()
                 }
 
@@ -358,6 +432,51 @@
 
             if (event.key === 'b') {
                 brushMode = !brushMode
+                console.log(`brush mode ${(brushMode) ? "on" : "off"}`)
+            }
+
+            if (event.key === 'm') {
+                midiMode = !midiMode
+
+                console.log(`midi mode ${(midiMode) ? "on" : "off"}`)
+
+                if (!midiMode) {
+                    for (let i = 0; i < keyBoardMIDIList.length; i++) {
+                        if (pressedKeyBoard[i]) {
+                            let thisPitch = pitch[i % 12]
+                            thisPitch += (4 + Math.floor(i / 12)).toString()
+
+                            pressedKeyBoard[i] = false
+                            synth.triggerRelease(thisPitch)
+                        }
+                    }
+                }
+            }
+
+            if (keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
+                const index = keyBoardMIDIList.indexOf(event.key.toLowerCase())
+
+                if(!pressedKeyBoard[index]) {
+                    let thisPitch = pitch[index % 12]
+                    thisPitch += (4 + Math.floor(index / 12)).toString()
+
+                    synth.triggerAttack(thisPitch)
+                    pressedKeyBoard[index] = true
+                }
+            }
+        })
+
+        window.addEventListener('keyup', (event) => {
+            if (keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
+                const index = keyBoardMIDIList.indexOf(event.key.toLowerCase())
+
+                if (pressedKeyBoard[index]) {
+                    let thisPitch = pitch[index % 12]
+                    thisPitch += (4 + Math.floor(index / 12)).toString()
+
+                    pressedKeyBoard[index] = false
+                    synth.triggerRelease(thisPitch)
+                }
             }
         })
 

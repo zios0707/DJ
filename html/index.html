@@ -38,7 +38,9 @@
     let isIndexed = false;
 
     let brushMode = false
+
     let midiMode = false
+    let midiScale = 4;
 
     const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
@@ -264,7 +266,6 @@
 
         inTrack.appendChild(newBase)
 
-
          for (let o = 0; o < 40; o++) {
              for (let k = 0; k < 4; k++) {
                  const noteList = document.createElement('div')
@@ -280,6 +281,21 @@
                  newBase.appendChild(noteList)
              }
          }
+    }
+
+    function offAllMIDI() {
+        for (let s = 1; s <= 7; s++) {
+            for (let i = 0; i < keyBoardMIDIList.length; i++) {
+                if (pressedKeyBoard[i]) {
+                    let thisPitch = pitch[i % 12]
+                    thisPitch += (midiScale + Math.floor(i / 12)).toString()
+
+                    pressedKeyBoard[i] = false
+                    synth.triggerRelease(thisPitch)
+                }
+            }
+
+        }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -439,16 +455,17 @@
                 console.log(`midi mode ${(midiMode) ? "on" : "off"}`)
 
                 if (!midiMode) {
-                    for (let i = 0; i < keyBoardMIDIList.length; i++) {
-                        if (pressedKeyBoard[i]) {
-                            let thisPitch = pitch[i % 12]
-                            thisPitch += (4 + Math.floor(i / 12)).toString()
-
-                            pressedKeyBoard[i] = false
-                            synth.triggerRelease(thisPitch)
-                        }
-                    }
+                    offAllMIDI()
                 }
+            }
+
+            if (['<', ',', '>', '.'].includes(event.key)) {
+                let idx = ['<', ',', '>', '.'].indexOf(event.key)
+
+                offAllMIDI()
+
+                if (idx < 3 && midiScale > 1) midiScale--
+                else if (idx > 2 && midiScale < 7) midiScale++
             }
 
             if (keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
@@ -456,7 +473,7 @@
 
                 if(!pressedKeyBoard[index]) {
                     let thisPitch = pitch[index % 12]
-                    thisPitch += (4 + Math.floor(index / 12)).toString()
+                    thisPitch += (midiScale + Math.floor(index / 12)).toString()
 
                     synth.triggerAttack(thisPitch)
                     pressedKeyBoard[index] = true
@@ -470,7 +487,7 @@
 
                 if (pressedKeyBoard[index]) {
                     let thisPitch = pitch[index % 12]
-                    thisPitch += (4 + Math.floor(index / 12)).toString()
+                    thisPitch += (midiScale + Math.floor(index / 12)).toString()
 
                     pressedKeyBoard[index] = false
                     synth.triggerRelease(thisPitch)

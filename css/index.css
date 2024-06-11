@@ -18,12 +18,17 @@ body::-webkit-scrollbar {
     width: 100vw;
     background: #6d6d6d;
     border: black 4px solid;
+
+    user-select: none;
+}
+
+#header . {
 }
 
 /* bpmBox */
 
 #bpm {
-    display: flex;
+    display: inline-flex;
 
     justify-content: space-between;
 
@@ -67,6 +72,37 @@ body::-webkit-scrollbar {
 
     background: #b3b3b3;
     border: black 1px solid;
+}
+/* mods */
+
+.mode img {
+    margin: auto;
+
+    user-select: none;
+
+    width: 40px;
+    height: 40px;
+}
+
+#brush img {
+    margin: 5px;
+    width: 30px;
+    height: 30px;
+}
+
+.mode.on {
+    background: #e0e0e0;
+}
+
+.mode {
+    display: inline-block;
+
+    width: 40px;
+    height: 40px;
+
+    background: #f0f0f0;
+
+    border: black 5px solid;
 }
 
 /* main */

@@ -283,11 +283,9 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        const body = document.querySelector("body");
-
         // 노트 양산 + 위치표 양산
         const base = document.querySelector("#base");
-        const navigater = document.querySelector("#navigaterBar")
+        const navigator = document.querySelector("#navigatorBar")
         const navigate = document.querySelector("#navigate")
 
         for (let o = 0; o < 40; o++) {
@@ -315,7 +313,7 @@
                 }
 
                 location.dataset.loc = (k + o * 4).toString()
-                navigater.appendChild(location)
+                navigator.appendChild(location)
             }
         }
 
@@ -325,7 +323,7 @@
 
         window.addEventListener('scroll', () => {
             keyboards.style.marginTop = `${-window.scrollY + 35}px`;
-            navigater.style.marginLeft = `${-window.scrollX}px`;
+            navigator.style.marginLeft = `${-window.scrollX}px`;
             navigateX = scrollXDiffer - window.scrollX + navigateX
             navigate.style.marginLeft = `${navigateX}px`
             scrollXDiffer = window.scrollX
@@ -373,7 +371,7 @@
         // 로케이션 인덱스화
         const locations = document.querySelectorAll(".location")
 
-        locations.forEach((location, index) => {
+        locations.forEach((location) => {
             location.addEventListener('mousedown', () => {
                 if (isPlaying) {
                     stop()
@@ -480,7 +478,7 @@
             }
         })
 
-        alert("확대율을 80%로 설정해주세요!")
+        alert("확대율을 80%로 설정하는 것을 추천합니다.")
     })
 </script>
 <div id="header">
@@ -502,8 +500,8 @@
         </div>
         <div id="instInfo"></div>
         <div id="track">
-            <div id="playNavigater">
-                <div id="navigaterBar"></div>
+            <div id="playNavigator">
+                <div id="navigatorBar"></div>
             </div>
             <img id="navigate" src="../media/playNavigate.svg" alt="navigate">
             <div id="inTrack">

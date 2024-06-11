@@ -1,6 +1,6 @@
 body {
-    margin: 0px;
-    padding: 0px;
+    margin: 0;
+    padding: 0;
 
     background: #d4d4d4;
 }
@@ -50,13 +50,12 @@ body::-webkit-scrollbar {
     background: transparent;
     text-align: center;
 
-    border: black 0px solid;
+    border: black 0 solid;
 
-    padding-block: 0px;
-    padding-inline: 0px;
+    padding-block: 0;
+    padding-inline: 0;
 
     font-size: 40px;
-    font-family: Inter;
 }
 
 
@@ -111,7 +110,7 @@ body::-webkit-scrollbar {
 
     height: 168px;
 
-    border-radius: 0px 0px 17px 17px;
+    border-radius: 0 0 17px 17px;
 
     border-bottom: black 4px solid;
     border-left: black 4px solid;
@@ -131,7 +130,7 @@ body::-webkit-scrollbar {
     height: 47px;
     background: #f3f3f380;
 
-    border-radius: 0px 0px 17px 17px;
+    border-radius: 0 0 17px 17px;
 
     border-bottom: #00000080 4px solid;
     border-left: #00000080 4px solid;
@@ -154,9 +153,9 @@ body::-webkit-scrollbar {
     width: 100%;
 }
 
-/* navigater */
+/* navigator */
 
-#playNavigater {
+#playNavigator {
     z-index: 2;
     background: #b3b3b3;
 
@@ -173,7 +172,7 @@ body::-webkit-scrollbar {
     padding-left: 123px;
 }
 
-#navigaterBar {
+#navigatorBar {
     position: absolute;
 
 
@@ -231,7 +230,7 @@ body::-webkit-scrollbar {
     background: gray;
 
     margin-top: 35px;
-    margin-left: 0px;
+    margin-left: 0;
 }
 
 .keyboard {

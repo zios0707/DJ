@@ -12,6 +12,8 @@ body::-webkit-scrollbar {
 /* header */
 
 #header {
+    display: inline-flex;
+
     z-index: 2;
     position: fixed;
     height: 76px;
@@ -22,7 +24,9 @@ body::-webkit-scrollbar {
     user-select: none;
 }
 
-#header . {
+#header > div {
+    margin-top: 10px;
+    margin-left: 25px;
 }
 
 /* bpmBox */
@@ -103,6 +107,58 @@ body::-webkit-scrollbar {
     background: #f0f0f0;
 
     border: black 5px solid;
+}
+
+/* infos */
+
+#infoBox {
+    display: inline-flex;
+    height: 40px;
+
+    border: black 5px solid;
+}
+
+#infoBox > div {
+    display: inline-block;
+}
+
+#infoBox input {
+    display: inline-block;
+
+    background: transparent;
+
+    border: black 0 solid;
+}
+
+#beat {
+    padding-left: 5px;
+    padding-top: 5px;
+    padding-right: 7px;
+    height: calc(100% - 5px);
+
+
+    background: #b3b3b3;
+
+    font-size: 20px;
+}
+
+#beat > input {
+    width: 12px;
+
+    background: #9d9d9d;
+    font-size: 20px;
+}
+
+#length {
+    margin-left: 5px;
+
+    background: #b3b3b3;
+}
+
+#layerLength {
+    width: 37px;
+
+    font-size: 32px;
 }
 
 /* main */

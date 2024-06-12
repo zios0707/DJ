@@ -5,15 +5,33 @@ const pressedKeyBoard = [false, false, false, false, false, false, false, false,
 
 const trackInfos = {};
 
+let trackOneBlockSize = 4;
+let trackLongSize = 40;
 let thisTrackNum = 1;
 
 function createTrackInfoNewOne(index) {
 
     const track = []
 
-    for (let i = 0; i < 160; i++) track.push([])
+    for (let i = 0; i < trackOneBlockSize * trackLongSize; i++) track.push([])
 
     trackInfos[index] = track
+}
+
+function overwriteAllTrackBySize() {
+
+    alivedLayer.forEach((trackNum) => {
+
+        const track = trackInfos[trackNum]
+
+        const newTrackSize = trackOneBlockSize * trackLongSize
+
+        if (track.length < newTrackSize) {
+            for (let i = 0; i < newTrackSize - track.length; i++) track.push([])
+        }else if(track.length > newTrackSize) {
+            track.splice(newTrackSize, track.length - newTrackSize)
+        }
+    })
 }
 
 let navigateAt = 0; // trackInfo 에 사용할 인덱스
@@ -73,7 +91,7 @@ function createNote(x, y, layerInfo) {
     const isWhiteNote = [0, 2, 4, 6, 7, 9, 11].includes(y % 12)
 
     note.classList.add(isWhiteNote ? 'white' : 'black')
-    note.classList.add((x % 4 === 3) ? 'last' : 'normal')
+    note.classList.add((x % trackOneBlockSize === trackOneBlockSize - 1) ? 'last' : 'normal')
     note.classList.add((y % 12 === 0) ? 'end' : 'nothing')
 
     note.dataset.pitch = `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
@@ -153,11 +171,14 @@ function createKeyboard(scale) {
 
 
 let deleteLayerQueue = []
+let alivedLayer = []
 let layerCount = 1;
-function createLayer(isSelected) {
+function createLayer() {
     deleteLayerQueue.sort()
 
     const thisNumber = (deleteLayerQueue.length === 0) ? layerCount++ : deleteLayerQueue.shift()
+
+    alivedLayer.push(thisNumber)
 
     createTrackInfoNewOne(thisNumber)
 
@@ -165,7 +186,7 @@ function createLayer(isSelected) {
     layer.classList.add('layer')
     layer.dataset.layer = thisNumber
 
-    if (isSelected) layer.id = 'selectedLayer'
+    if (alivedLayer.length === 1) layer.id = 'selectedLayer'
 
     const deleteButton = document.createElement("div")
 
@@ -178,6 +199,7 @@ function createLayer(isSelected) {
             layer.remove()
             delete trackInfos[layer.dataset.layer]
             deleteLayerQueue.push(layer.dataset.layer)
+            alivedLayer.splice(alivedLayer.indexOf(layer.dataset.layer), 1)
             isDisabled = true
         }
     })
@@ -195,7 +217,7 @@ function createLayer(isSelected) {
 
         thisTrackNum = layer.dataset.layer
 
-        rendering(layer)
+        rendering()
     })
 
     const textBox = document.createElement('div')
@@ -207,11 +229,12 @@ function createLayer(isSelected) {
 
 let playNavigateId;
 
-function playNavigate() {
+function playNavigate(bpm) {
     const navigate = document.querySelector("#navigate")
 
     const noteWidth = document.querySelectorAll(".note")[0].offsetWidth
-    navigateX += noteWidth / 10
+
+    navigateX += noteWidth * trackOneBlockSize * (bpm / 60) / 100
     navigate.style.marginLeft = `${navigateX}px`
 }
 
@@ -238,8 +261,7 @@ function bpmReset() {
     if (playNavigateId) {
         clearInterval(playNavigateId)
 
-        playNavigateId = setInterval(playNavigate,
-            60 / bpm * 10)
+        playNavigateId = setInterval(() => playNavigate(bpm), 10)
     }
 }
 
@@ -247,18 +269,54 @@ function rendering() {
     const track = trackInfos[thisTrackNum]
 
     const base = document.querySelector("#base")
+    const navigator = document.querySelector("#navigatorBar")
+
+    const navigate = document.querySelector("#navigate")
 
     base.innerHTML = ''
+    navigator.innerHTML = ''
 
-    for (let o = 0; o < 40; o++) {
-        for (let k = 0; k < 4; k++) {
+    for (let o = 0; o < trackLongSize; o++) {
+        for (let k = 0; k < trackOneBlockSize; k++) {
             const noteList = document.createElement('div')
             for (let i = 0; i < 7; i++)
                 for (let j = 0; j < 12; j++)
-                    noteList.appendChild(createNote(k + o * 4, i * 12 + j, track[k + o * 4]))
+                    noteList.appendChild(createNote(k + o * trackOneBlockSize, i * 12 + j, track[k + o * trackOneBlockSize]))
 
             noteList.classList.add('noteList')
             base.appendChild(noteList)
+
+            // 위치표
+            const location = document.createElement("div")
+            location.classList.add('location')
+            if (k === 0) {
+                const line = document.createElement("img")
+                line.src = "../media/locationLine.svg"
+                line.alt = "위치 라인"
+                const text = document.createElement("div")
+                text.innerText = o.toString()
+
+                location.appendChild(line)
+                location.appendChild(text)
+            }
+
+            location.dataset.loc = (k + o * 4).toString()
+            navigator.appendChild(location)
+
+            // 인덱싱
+            location.addEventListener('mousedown', () => {
+                if (isPlaying) {
+                    stop()
+                    isPlaying = !isPlaying
+                }
+                navigateX = -window.scrollX + 136 + location.dataset.loc * 45
+                defaultNavigateX = 136 + location.dataset.loc * 45
+                navigate.style.marginLeft = `${navigateX}px`
+
+                navigateAt = location.dataset.loc
+                defaultNavigateAt = navigateAt
+                isIndexed = true
+            })
         }
     }
 }
@@ -304,38 +362,11 @@ function toggleMode(mode) {
 
 document.addEventListener("DOMContentLoaded", () => {
     // 노트 양산 + 위치표 양산
-    const base = document.querySelector("#base");
     const navigator = document.querySelector("#navigatorBar")
     const navigate = document.querySelector("#navigate")
 
-    for (let o = 0; o < 40; o++) {
-        for (let k = 0; k < 4; k++) {
-            // 노트
-            const noteList = document.createElement('div')
-            for (let i = 0; i < 7; i++)
-                for (let j = 0; j < 12; j++)
-                    noteList.appendChild(createNote(k + o * 4, i * 12 + j))
-            noteList.classList.add('noteList')
-            base.appendChild(noteList)
-
-            // 위치표
-            const location = document.createElement("div")
-            location.classList.add('location')
-            if (k === 0) {
-                const line = document.createElement("img")
-                line.src = "../media/locationLine.svg"
-                line.alt = "위치 라인"
-                const text = document.createElement("div")
-                text.innerText = o.toString()
-
-                location.appendChild(line)
-                location.appendChild(text)
-            }
-
-            location.dataset.loc = (k + o * 4).toString()
-            navigator.appendChild(location)
-        }
-    }
+    createTrackInfoNewOne(1)
+    rendering()
 
 
     // X축과 Y축 따라오도록 설정
@@ -358,12 +389,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const layerList = document.querySelector("#layerList")
 
     // 기본 트랙(레이어) 생성
-    layerList.appendChild(createLayer(true))
+    layerList.appendChild(createLayer())
 
     // 트랙 추가 반응
     const addLayer = document.querySelector("#addLayer")
     addLayer.addEventListener('click', () => {
-        layerList.appendChild(createLayer(false))
+        layerList.appendChild(createLayer())
     })
 
     // bpm 오르락 내리락
@@ -388,26 +419,6 @@ document.addEventListener("DOMContentLoaded", () => {
         bpmReset()
     })
 
-    // 로케이션 인덱스화
-    const locations = document.querySelectorAll(".location")
-
-    locations.forEach((location) => {
-        location.addEventListener('mousedown', () => {
-            if (isPlaying) {
-                stop()
-                isPlaying = !isPlaying
-            }
-
-            navigateX = -window.scrollX + 136 + location.dataset.loc * 45
-            defaultNavigateX = 136 + location.dataset.loc * 45
-            navigate.style.marginLeft = `${navigateX}px`
-
-            navigateAt = location.dataset.loc
-            defaultNavigateAt = navigateAt
-            isIndexed = true
-        })
-    })
-
     // MODE 온 오프 딸깍 딸깍
     const modes = document.querySelectorAll(".mode")
 
@@ -415,6 +426,30 @@ document.addEventListener("DOMContentLoaded", () => {
         mode.addEventListener('click', () => {
             toggleMode(mode)
         })
+    })
+
+    // 트랙 사이즈 변경
+    const beat = document.querySelector("#beatValue")
+    const size = document.querySelector("#layerLength")
+
+    beat.addEventListener('blur', () => {
+        if(isNaN(beat.value) || beat.value <= 0) {
+            beat.value = trackOneBlockSize
+        }else {
+            trackOneBlockSize = beat.value
+            overwriteAllTrackBySize()
+            rendering()
+        }
+    })
+
+    size.addEventListener('blur', () => {
+        if(isNaN(size.value) || size.value <= 0) {
+            size.value = trackLongSize
+        }else {
+            trackLongSize = size.value
+            overwriteAllTrackBySize()
+            rendering()
+        }
     })
 
     window.addEventListener('keydown', (event) => {
@@ -429,11 +464,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     navigateAt = defaultNavigateAt
                 }
 
+
+
                 console.log("play")
-                playNavigate()
-                playNavigateId = setInterval(playNavigate, 60 / bpm.value * 25)
+
+                playNavigateId = setInterval(() => playNavigate(bpm.value), 10)
                 playMusic()
-                playMusicId = setInterval(playMusic, 60 / bpm.value * 250)
+                playMusicId = setInterval(playMusic, 60 / bpm.value * 1000 / beat.value)
             }else {
 
                 console.log("stop!")
@@ -457,13 +494,13 @@ document.addEventListener("DOMContentLoaded", () => {
             navigateX = -scrollX + 136
         }
 
-        if (event.key === 'b') {
+        if (event.key.toLowerCase() === 'b') {
             toggleMode("brush")
 
             console.log(`brush mode ${(brushMode) ? "on" : "off"}`)
         }
 
-        if (event.key === 'm') {
+        if (event.key.toLowerCase() === 'm') {
             toggleMode("midi")
 
             console.log(`midi mode ${(midiMode) ? "on" : "off"}`)

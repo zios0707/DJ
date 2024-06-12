@@ -85,7 +85,7 @@ function createNote(x, y, layerInfo) {
 
     note.addEventListener('mousedown', () => {
         if (brushMode) {
-            if (trackInfos[thisTrackNum][note.dataset.x].indexOf(note) === -1) {
+            if (!note.classList.contains('inserted')) {
                 playNote(note)
                 saveNote(note)
             }else {
@@ -96,7 +96,7 @@ function createNote(x, y, layerInfo) {
 
     note.addEventListener('dblclick', () => {
         if (!brushMode) {
-            if (trackInfos[thisTrackNum][note.dataset.x].indexOf(note) === -1) {
+            if (!note.classList.contains('inserted')) {
                 playNote(note)
                 saveNote(note)
             }else {
@@ -243,32 +243,22 @@ function bpmReset() {
     }
 }
 
-function rendering(thisLayer) {
-    const track = trackInfos[thisLayer.dataset.layer]
+function rendering() {
+    const track = trackInfos[thisTrackNum]
 
-    const inTrack = document.querySelector("#inTrack")
     const base = document.querySelector("#base")
 
-    const newBase = document.createElement("div")
-    newBase.id = "base"
-
-    inTrack.removeChild(base)
-
-    inTrack.appendChild(newBase)
+    base.innerHTML = ''
 
     for (let o = 0; o < 40; o++) {
         for (let k = 0; k < 4; k++) {
             const noteList = document.createElement('div')
             for (let i = 0; i < 7; i++)
                 for (let j = 0; j < 12; j++)
-                    if (thisLayer === "undefined") {
-                        noteList.appendChild(createNote(k + o * 4, i * 12 + j))
-                    }else {
-                        noteList.appendChild(createNote(k + o * 4, i * 12 + j, track[k + o * 4]))
-                    }
+                    noteList.appendChild(createNote(k + o * 4, i * 12 + j, track[k + o * 4]))
 
             noteList.classList.add('noteList')
-            newBase.appendChild(noteList)
+            base.appendChild(noteList)
         }
     }
 }
@@ -289,9 +279,7 @@ function offAllMIDI() {
 }
 
 function toggleMode(mode) {
-    console.log(mode)
     if (typeof mode === "string") mode = document.querySelector(`#${mode}`)
-    console.log(mode)
 
     switch (mode.id) {
         case "brush":

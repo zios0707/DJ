@@ -3,7 +3,7 @@ const pitch = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const keyBoardMIDIList = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k']
 const pressedKeyBoard = [false, false, false, false, false, false, false, false, false, false, false, false, false]
 
-const trackInfos = {};
+let trackInfos = {};
 
 let trackOneBlockSize = 4;
 let trackLongSize = 40;
@@ -20,7 +20,7 @@ function createTrackInfoNewOne(index) {
 
 function overwriteAllTrackBySize() {
 
-    alivedLayer.forEach((trackNum) => {
+    aliveLayer.forEach((trackNum) => {
 
         const track = trackInfos[trackNum]
 
@@ -171,14 +171,21 @@ function createKeyboard(scale) {
 
 
 let deleteLayerQueue = []
-let alivedLayer = []
+let aliveLayer = []
 let layerCount = 1;
 function createLayer() {
     deleteLayerQueue.sort()
 
-    const thisNumber = (deleteLayerQueue.length === 0) ? layerCount++ : deleteLayerQueue.shift()
+    if(deleteLayerQueue.length === 0) {
+        while (!aliveLayer.includes(layerCount + 1)) {
+            layerCount++
+        }
+        layerCount++
+    }else {
+        deleteLayerQueue.shift()
+    }
 
-    alivedLayer.push(thisNumber)
+    aliveLayer.push(thisNumber)
 
     createTrackInfoNewOne(thisNumber)
 
@@ -186,7 +193,7 @@ function createLayer() {
     layer.classList.add('layer')
     layer.dataset.layer = thisNumber
 
-    if (alivedLayer.length === 1) layer.id = 'selectedLayer'
+    if (aliveLayer.length === 1) layer.id = 'selectedLayer'
 
     const deleteButton = document.createElement("div")
 
@@ -199,7 +206,7 @@ function createLayer() {
             layer.remove()
             delete trackInfos[layer.dataset.layer]
             deleteLayerQueue.push(layer.dataset.layer)
-            alivedLayer.splice(alivedLayer.indexOf(layer.dataset.layer), 1)
+            aliveLayer.splice(aliveLayer.indexOf(layer.dataset.layer), 1)
             isDisabled = true
         }
     })
@@ -450,6 +457,121 @@ document.addEventListener("DOMContentLoaded", () => {
             overwriteAllTrackBySize()
             rendering()
         }
+    })
+
+    // 파일 받기 이벤트
+    const area = document.querySelector("#file")
+    const input = document.querySelector("#file-input")
+
+    area.addEventListener('dragover', (e) => {
+        e.preventDefault()
+        area.style.backgroundColor = "#b3b3b3"
+    })
+
+    area.addEventListener('dragleave', () => {
+        area.style.backgroundColor = "#d9d9d9"
+    })
+
+    area.addEventListener('drop', (event) => {
+        event.preventDefault()
+        const file = event.dataTransfer.files[0];
+        if (file && file.type === "application/json") {
+            if (confirm("현재 모든 트랙을 덮어 씁니다. 괜찮습니까?")) {
+                file.text().then((it) => {
+                    const parsedSave = JSON.parse(it)
+
+                    try {
+                        bpm.value = parsedSave.bpm
+                        aliveLayer = parsedSave.layer
+                        deleteLayerQueue = []
+                        trackOneBlockSize = parsedSave.byteSize
+                        trackLongSize = parsedSave.trackSize
+
+                        thisTrackNum = aliveLayer.sort()[0]
+
+                        trackInfos = {}
+
+                        for (const index of parsedSave.layer) {
+                            createTrackInfoNewOne(index)
+                        }
+
+                        for (const note of parsedSave.notes) {
+                            const thisArray = trackInfos[note.layer][note.x]
+
+                            rendering()
+
+                            const domNote = document.querySelector(`[data-x="${note.x}"] [data-pitch="${note.pitch}"]`)
+
+                            console.log(domNote)
+
+                            thisArray.push(domNote)
+                        }
+
+                        rendering()
+                    }catch (e) {
+                        console.log(e)
+                        alert("파일이 손상되었거나 잘못된 파일입니다. 만약 파일이 손상 된 것이라면 디스코드 zios___ 으로 dm 해주세욘")
+                    }
+
+
+                }).catch((err) => {
+                    console.log(err)
+                })
+
+            }
+        }else {
+            alert("잘못된 파일 형식입니다. 다시 확인해주세요.")
+        }
+        area.style.backgroundColor = "#d9d9d9"
+    })
+
+    area.addEventListener('click', (event) => {
+        input.click()
+    })
+
+    // 세이브 파일 받기 이벤트
+    const saveButton = document.querySelector("#export")
+
+    saveButton.addEventListener('click', (e) => {
+
+        const note = []
+
+        aliveLayer.forEach((value) => {
+            trackInfos[value].forEach((array, index) => {
+                if(array.length !== 0) {
+                    for (const node of array) {
+                        note.push({
+                            pitch: node.dataset.pitch,
+                            x: node.dataset.x,
+                            layer: value
+                        })
+                    }
+                }
+            })
+        })
+
+        note.sort((a, b) => a.x - b.x)
+
+        const object = {
+            bpm: bpm.value,
+            byteSize: trackOneBlockSize,
+            trackSize: trackLongSize,
+            layer: aliveLayer,
+            notes: note
+        }
+
+        console.log(object)
+
+        const url = URL.createObjectURL(
+            new Blob([JSON.stringify(object)], { type: 'application/json' })
+        )
+
+        const anchor = document.createElement("a")
+        anchor.href = url
+        anchor.download = "dj-save.json"
+        anchor.click();
+
+        URL.revokeObjectURL(url)
     })
 
     window.addEventListener('keydown', (event) => {

@@ -161,6 +161,40 @@ body::-webkit-scrollbar {
     font-size: 32px;
 }
 
+/* file input output */
+
+#file {
+    background: #D9D9D9;
+    height: 60%;
+    width: 120px;
+
+    text-align: center;
+    font-size: 15px;
+
+    border: black 4px solid;
+}
+
+#file-input {
+    height: 100%;
+    width: 100%;
+}
+
+
+
+#export {
+
+    background: #D9D9D9;
+    height: calc(60% - 8px);
+    width: 50px;
+
+    text-align: center;
+    font-size: 20px;
+
+    padding-top: 8px;
+
+    border: black 4px solid;
+}
+
 /* main */
 
 #container {

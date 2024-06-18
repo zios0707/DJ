@@ -508,8 +508,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         thisTrackNum = Math.min(...aliveLayer)
                         layerCount = Math.max(...aliveLayer) + 1
-                        console.log(`${layerCount} lc`)
-
 
                         for (const key of Object.keys(trackInfos)) {
                             delete trackInfos[key]
@@ -532,9 +530,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             thisArray.push(noteObj)
                         }
 
-                        console.log("렌더링")
                         rendering()
-                        console.log(2)
                     }catch (e) {
                         console.log(e)
                         alert("파일이 손상되었거나, 버그가 발생했습니다. 디스코드 zios___ 으로 dm 해주세욘")
@@ -586,8 +582,6 @@ document.addEventListener("DOMContentLoaded", () => {
             layer: aliveLayer,
             notes: note
         }
-
-        console.log(object)
 
         const url = URL.createObjectURL(
             new Blob([JSON.stringify(object)], { type: 'application/json' })

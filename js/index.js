@@ -595,6 +595,10 @@ document.addEventListener("DOMContentLoaded", () => {
         URL.revokeObjectURL(url)
     })
 
+    document.addEventListener('mouseleave', () => {
+        offAllMIDI()
+    })
+
     window.addEventListener('keydown', (event) => {
         if (event.key === ' ') {
             event.preventDefault()

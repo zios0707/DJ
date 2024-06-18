@@ -20,7 +20,7 @@ function createTrackInfoNewOne(index) {
 
 function overwriteAllTrackBySize() {
 
-    alivedLayer.forEach((trackNum) => {
+    aliveLayer.forEach((trackNum) => {
 
         const track = trackInfos[trackNum]
 
@@ -61,9 +61,9 @@ function playNote(note) {
     let pitch
 
     if (Array.isArray(note)) {
-        pitch = note.map(note => note.dataset.pitch)
+        pitch = note.map(note => note["pitch"])
     }else {
-        pitch = note.dataset.pitch
+        pitch = note["pitch"]
     }
 
     synth.triggerAttackRelease(pitch, "8n")
@@ -72,7 +72,11 @@ function playNote(note) {
 function saveNote(note) {
     const thisArray = trackInfos[thisTrackNum][note.dataset.x]
 
-    thisArray.push(note)
+    thisArray.push({
+        pitch: note.dataset.pitch,
+        x: note.dataset.x,
+        layer: note.dataset.layer,
+    })
 
     note.classList.add('inserted')
 }
@@ -80,7 +84,11 @@ function saveNote(note) {
 function deleteNote(note) {
     const thisArray = trackInfos[thisTrackNum][note.dataset.x]
 
-    thisArray.splice(thisArray.indexOf(note), 1)
+    thisArray.splice(thisArray.indexOf({
+        pitch: note.dataset.pitch,
+        x: note.dataset.x,
+        layer: note.dataset.layer,
+    }), 1)
 
     note.classList.remove('inserted')
 }
@@ -97,7 +105,7 @@ function createNote(x, y, layerInfo) {
     note.dataset.pitch = `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
     note.dataset.x = x
 
-    if (Array.isArray(layerInfo) && layerInfo.filter((thisNote) => thisNote.dataset.pitch === note.dataset.pitch).length !== 0) {
+    if (Array.isArray(layerInfo) && layerInfo.filter((thisNote) => thisNote["pitch"] === note.dataset.pitch).length !== 0) {
         note.classList.add('inserted')
     }
 
@@ -170,15 +178,17 @@ function createKeyboard(scale) {
 }
 
 
-let deleteLayerQueue = []
-let alivedLayer = []
+const deleteLayerQueue = []
+let aliveLayer = []
 let layerCount = 1;
-function createLayer() {
+function createLayer(index) {
     deleteLayerQueue.sort()
 
-    const thisNumber = (deleteLayerQueue.length === 0) ? layerCount++ : deleteLayerQueue.shift()
+    const thisNumber = (index) ? index : (deleteLayerQueue.length === 0) ? layerCount++ : deleteLayerQueue.shift()
 
-    alivedLayer.push(thisNumber)
+    if (!index) {
+        aliveLayer.push(thisNumber)
+    }
 
     createTrackInfoNewOne(thisNumber)
 
@@ -186,7 +196,7 @@ function createLayer() {
     layer.classList.add('layer')
     layer.dataset.layer = thisNumber
 
-    if (alivedLayer.length === 1) layer.id = 'selectedLayer'
+    if (aliveLayer.length === 1 || thisNumber === thisTrackNum) layer.id = 'selectedLayer'
 
     const deleteButton = document.createElement("div")
 
@@ -199,7 +209,7 @@ function createLayer() {
             layer.remove()
             delete trackInfos[layer.dataset.layer]
             deleteLayerQueue.push(layer.dataset.layer)
-            alivedLayer.splice(alivedLayer.indexOf(layer.dataset.layer), 1)
+            aliveLayer.splice(aliveLayer.indexOf(layer.dataset.layer), 1)
             isDisabled = true
         }
     })
@@ -450,6 +460,144 @@ document.addEventListener("DOMContentLoaded", () => {
             overwriteAllTrackBySize()
             rendering()
         }
+    })
+
+    // 파일 받기 이벤트
+    const area = document.querySelector("#file")
+    const input = document.querySelector("#file-input")
+
+    area.addEventListener('dragover', (e) => {
+        e.preventDefault()
+        area.style.backgroundColor = "#b3b3b3"
+    })
+
+    area.addEventListener('dragleave', () => {
+        area.style.backgroundColor = "#d9d9d9"
+    })
+
+    area.addEventListener('drop', (event) => {
+        event.preventDefault()
+        const file = event.dataTransfer.files[0];
+        if (file && file.type === "application/json") {
+            if (confirm("현재 모든 트랙을 덮어 씁니다. 괜찮습니까?")) {
+                file.text().then((it) => {
+                    const parsed = JSON.parse(it)
+
+                    try {
+                        bpm.value = parsed.bpm
+                        aliveLayer = parsed.layer
+
+                        deleteLayerQueue.splice(deleteLayerQueue.length - 1)
+
+                        const empty = []
+                        for (let i = 1; i <= Math.max(...aliveLayer); i++) {
+                            empty.push(i)
+                        }
+
+                        for (const aliveNum of aliveLayer) {
+                            empty.splice(empty.indexOf(aliveNum), 1)
+                        }
+
+                        for (const item of empty) {
+                            deleteLayerQueue.push(item)
+                        }
+
+                        trackOneBlockSize = parsed.byteSize
+                        trackLongSize = parsed.trackSize
+
+                        thisTrackNum = Math.min(...aliveLayer)
+                        layerCount = Math.max(...aliveLayer) + 1
+                        console.log(`${layerCount} lc`)
+
+
+                        for (const key of Object.keys(trackInfos)) {
+                            delete trackInfos[key]
+                        }
+
+                        layerList.innerHTML = ''
+                        for (const idx of parsed.layer) {
+                            layerList.appendChild(createLayer(idx))
+                        }
+
+                        for (const note of parsed.notes) {
+                            const thisArray = trackInfos[note.layer][note.x]
+
+                            const noteObj = {
+                                pitch: note.pitch,
+                                x: note.x,
+                                layer: note.layer,
+                            }
+
+                            thisArray.push(noteObj)
+                        }
+
+                        console.log("렌더링")
+                        rendering()
+                        console.log(2)
+                    }catch (e) {
+                        console.log(e)
+                        alert("파일이 손상되었거나, 버그가 발생했습니다. 디스코드 zios___ 으로 dm 해주세욘")
+                    }
+
+
+                }).catch((err) => {
+                    console.log(err)
+                })
+
+            }
+        }else {
+            alert("잘못된 파일 형식입니다. 다시 확인해주세요.")
+        }
+        area.style.backgroundColor = "#d9d9d9"
+    })
+
+    area.addEventListener('click', () => {
+        input.click()
+    })
+
+    // 세이브 파일 받기 이벤트
+    const saveButton = document.querySelector("#export")
+
+    saveButton.addEventListener('click', () => {
+
+        const note = []
+
+        aliveLayer.forEach((value) => {
+            trackInfos[value].forEach((array) => {
+                if(array.length !== 0) {
+                    for (const node of array) {
+                        note.push({
+                            pitch: node['pitch'],
+                            x: node['x'],
+                            layer: value
+                        })
+                    }
+                }
+            })
+        })
+
+        note.sort((a, b) => a.x - b.x)
+
+        const object = {
+            bpm: bpm.value,
+            byteSize: trackOneBlockSize,
+            trackSize: trackLongSize,
+            layer: aliveLayer,
+            notes: note
+        }
+
+        console.log(object)
+
+        const url = URL.createObjectURL(
+            new Blob([JSON.stringify(object)], { type: 'application/json' })
+        )
+
+        const anchor = document.createElement("a")
+        anchor.href = url
+        anchor.download = "dj-save.json"
+        anchor.click();
+
+        URL.revokeObjectURL(url)
     })
 
     window.addEventListener('keydown', (event) => {

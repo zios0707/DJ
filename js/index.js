@@ -372,6 +372,22 @@ function toggleMode(mode) {
     }
 }
 
+function resetNavigate() {
+    const navigate = document.querySelector("#navigate")
+
+    if (isPlaying) {
+        stop()
+
+        isPlaying = !isPlaying
+    }
+    if (isIndexed) isIndexed = false;
+
+    navigateAt = 0
+
+    navigate.style.marginLeft = `${- scrollX + 136}px`
+    navigateX = -scrollX + 136
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     // 노트 양산 + 위치표 양산
     const navigator = document.querySelector("#navigatorBar")
@@ -448,6 +464,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if(isNaN(beat.value) || beat.value <= 0) {
             beat.value = trackOneBlockSize
         }else {
+            resetNavigate()
+
             trackOneBlockSize = beat.value
             overwriteAllTrackBySize()
             rendering()
@@ -458,6 +476,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if(isNaN(size.value) || size.value <= 0) {
             size.value = trackLongSize
         }else {
+            resetNavigate()
+
             trackLongSize = size.value
             overwriteAllTrackBySize()
             rendering()

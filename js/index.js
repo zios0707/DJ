@@ -206,10 +206,11 @@ function createLayer(index) {
 
     deleteButton.addEventListener('click', () => {
         if(layer.id !== 'selectedLayer') {
+            const numValue = Number(layer.dataset.layer)
             layer.remove()
-            delete trackInfos[layer.dataset.layer]
-            deleteLayerQueue.push(layer.dataset.layer)
-            aliveLayer.splice(aliveLayer.indexOf(layer.dataset.layer), 1)
+            delete trackInfos[numValue]
+            deleteLayerQueue.push(numValue)
+            aliveLayer.splice(aliveLayer.indexOf(numValue), 1)
             isDisabled = true
         }
     })

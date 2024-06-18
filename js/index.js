@@ -27,7 +27,8 @@ function overwriteAllTrackBySize() {
         const newTrackSize = trackOneBlockSize * trackLongSize
 
         if (track.length < newTrackSize) {
-            for (let i = 0; i < newTrackSize - track.length; i++) track.push([])
+            const diff = newTrackSize - track.length
+            for (let i = 0; i < diff; i++) track.push([])
         }else if(track.length > newTrackSize) {
             track.splice(newTrackSize, track.length - newTrackSize)
         }

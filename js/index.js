@@ -3,7 +3,7 @@ const pitch = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const keyBoardMIDIList = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k']
 const pressedKeyBoard = [false, false, false, false, false, false, false, false, false, false, false, false, false]
 
-let trackInfos = {};
+const trackInfos = {};
 
 let trackOneBlockSize = 4;
 let trackLongSize = 40;
@@ -61,9 +61,9 @@ function playNote(note) {
     let pitch
 
     if (Array.isArray(note)) {
-        pitch = note.map(note => note.dataset.pitch)
+        pitch = note.map(note => note["pitch"])
     }else {
-        pitch = note.dataset.pitch
+        pitch = note["pitch"]
     }
 
     synth.triggerAttackRelease(pitch, "8n")
@@ -72,7 +72,11 @@ function playNote(note) {
 function saveNote(note) {
     const thisArray = trackInfos[thisTrackNum][note.dataset.x]
 
-    thisArray.push(note)
+    thisArray.push({
+        pitch: note.dataset.pitch,
+        x: note.dataset.x,
+        layer: note.dataset.layer,
+    })
 
     note.classList.add('inserted')
 }
@@ -80,7 +84,11 @@ function saveNote(note) {
 function deleteNote(note) {
     const thisArray = trackInfos[thisTrackNum][note.dataset.x]
 
-    thisArray.splice(thisArray.indexOf(note), 1)
+    thisArray.splice(thisArray.indexOf({
+        pitch: note.dataset.pitch,
+        x: note.dataset.x,
+        layer: note.dataset.layer,
+    }), 1)
 
     note.classList.remove('inserted')
 }
@@ -97,7 +105,7 @@ function createNote(x, y, layerInfo) {
     note.dataset.pitch = `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
     note.dataset.x = x
 
-    if (Array.isArray(layerInfo) && layerInfo.filter((thisNote) => thisNote.dataset.pitch === note.dataset.pitch).length !== 0) {
+    if (Array.isArray(layerInfo) && layerInfo.filter((thisNote) => thisNote["pitch"] === note.dataset.pitch).length !== 0) {
         note.classList.add('inserted')
     }
 
@@ -170,22 +178,17 @@ function createKeyboard(scale) {
 }
 
 
-let deleteLayerQueue = []
+const deleteLayerQueue = []
 let aliveLayer = []
 let layerCount = 1;
-function createLayer() {
+function createLayer(index) {
     deleteLayerQueue.sort()
 
-    if(deleteLayerQueue.length === 0) {
-        while (!aliveLayer.includes(layerCount + 1)) {
-            layerCount++
-        }
-        layerCount++
-    }else {
-        deleteLayerQueue.shift()
-    }
+    const thisNumber = (index) ? index : (deleteLayerQueue.length === 0) ? layerCount++ : deleteLayerQueue.shift()
 
-    aliveLayer.push(thisNumber)
+    if (!index) {
+        aliveLayer.push(thisNumber)
+    }
 
     createTrackInfoNewOne(thisNumber)
 
@@ -193,7 +196,7 @@ function createLayer() {
     layer.classList.add('layer')
     layer.dataset.layer = thisNumber
 
-    if (aliveLayer.length === 1) layer.id = 'selectedLayer'
+    if (aliveLayer.length === 1 || thisNumber === thisTrackNum) layer.id = 'selectedLayer'
 
     const deleteButton = document.createElement("div")
 
@@ -478,39 +481,62 @@ document.addEventListener("DOMContentLoaded", () => {
         if (file && file.type === "application/json") {
             if (confirm("현재 모든 트랙을 덮어 씁니다. 괜찮습니까?")) {
                 file.text().then((it) => {
-                    const parsedSave = JSON.parse(it)
+                    const parsed = JSON.parse(it)
 
                     try {
-                        bpm.value = parsedSave.bpm
-                        aliveLayer = parsedSave.layer
-                        deleteLayerQueue = []
-                        trackOneBlockSize = parsedSave.byteSize
-                        trackLongSize = parsedSave.trackSize
+                        bpm.value = parsed.bpm
+                        aliveLayer = parsed.layer
 
-                        thisTrackNum = aliveLayer.sort()[0]
+                        deleteLayerQueue.splice(deleteLayerQueue.length - 1)
 
-                        trackInfos = {}
-
-                        for (const index of parsedSave.layer) {
-                            createTrackInfoNewOne(index)
+                        const empty = []
+                        for (let i = 1; i <= Math.max(...aliveLayer); i++) {
+                            empty.push(i)
                         }
 
-                        for (const note of parsedSave.notes) {
+                        for (const aliveNum of aliveLayer) {
+                            empty.splice(empty.indexOf(aliveNum), 1)
+                        }
+
+                        for (const item of empty) {
+                            deleteLayerQueue.push(item)
+                        }
+
+                        trackOneBlockSize = parsed.byteSize
+                        trackLongSize = parsed.trackSize
+
+                        thisTrackNum = Math.min(...aliveLayer)
+                        layerCount = Math.max(...aliveLayer) + 1
+                        console.log(`${layerCount} lc`)
+
+
+                        for (const key of Object.keys(trackInfos)) {
+                            delete trackInfos[key]
+                        }
+
+                        layerList.innerHTML = ''
+                        for (const idx of parsed.layer) {
+                            layerList.appendChild(createLayer(idx))
+                        }
+
+                        for (const note of parsed.notes) {
                             const thisArray = trackInfos[note.layer][note.x]
 
-                            rendering()
+                            const noteObj = {
+                                pitch: note.pitch,
+                                x: note.x,
+                                layer: note.layer,
+                            }
 
-                            const domNote = document.querySelector(`[data-x="${note.x}"] [data-pitch="${note.pitch}"]`)
-
-                            console.log(domNote)
-
-                            thisArray.push(domNote)
+                            thisArray.push(noteObj)
                         }
 
+                        console.log("렌더링")
                         rendering()
+                        console.log(2)
                     }catch (e) {
                         console.log(e)
-                        alert("파일이 손상되었거나 잘못된 파일입니다. 만약 파일이 손상 된 것이라면 디스코드 zios___ 으로 dm 해주세욘")
+                        alert("파일이 손상되었거나, 버그가 발생했습니다. 디스코드 zios___ 으로 dm 해주세욘")
                     }
 
 
@@ -525,24 +551,24 @@ document.addEventListener("DOMContentLoaded", () => {
         area.style.backgroundColor = "#d9d9d9"
     })
 
-    area.addEventListener('click', (event) => {
+    area.addEventListener('click', () => {
         input.click()
     })
 
     // 세이브 파일 받기 이벤트
     const saveButton = document.querySelector("#export")
 
-    saveButton.addEventListener('click', (e) => {
+    saveButton.addEventListener('click', () => {
 
         const note = []
 
         aliveLayer.forEach((value) => {
-            trackInfos[value].forEach((array, index) => {
+            trackInfos[value].forEach((array) => {
                 if(array.length !== 0) {
                     for (const node of array) {
                         note.push({
-                            pitch: node.dataset.pitch,
-                            x: node.dataset.x,
+                            pitch: node['pitch'],
+                            x: node['x'],
                             layer: value
                         })
                     }

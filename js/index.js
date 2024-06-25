@@ -53,61 +53,236 @@ let midiScale = 4;
 
 const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
-function playNote(note) {
+function playNote(notes) {
 
-    if (typeof note != "object" || note.length === 0) {
-        return
+    if (typeof notes === "object") {
+        const className = notes.constructor.name
+
+        if (className === 'Array' && notes.length === 0) {
+            return
+        }
+
+        if (className === 'HTMLDivElement') {
+            synth.triggerAttackRelease(notes.dataset.pitch, 0.25)
+        }else {
+            for (const note of notes) {
+                if (note.status === 'enable') {
+                    synth.triggerAttack(note.pitch)
+                }else { // disable
+                    synth.triggerRelease(note.pitch)
+                }
+            }
+        }
     }
+}
 
-    let pitch
-
-    if (Array.isArray(note)) {
-        pitch = note.map(note => note["pitch"])
-    }else {
-        pitch = note["pitch"]
-    }
-
-    synth.triggerAttackRelease(pitch, "8n")
+function stopSound(pitch) {
+    synth.triggerRelease(pitch)
 }
 
 function saveNote(note) {
-    const thisArray = trackInfos[thisTrackNum][note.dataset.x]
+    const thisTrack = trackInfos[thisTrackNum]
 
-    thisArray.push({
+    thisTrack[note.dataset.x].push({
         pitch: note.dataset.pitch,
-        x: note.dataset.x,
-        layer: note.dataset.layer,
+        x: Number(note.dataset.x),
+        layer: thisTrackNum,
+        status: 'enable'
     })
+    thisTrack[Number(note.dataset.x) + 1].push({
+            pitch: note.dataset.pitch,
+            x: Number(note.dataset.x + 1),
+            layer: thisTrackNum,
+            status: 'disable'
+        }
+    )
 
     note.classList.add('inserted')
+    note.setAttribute("draggable", "true")
 }
 
 function deleteNote(note) {
-    const thisArray = trackInfos[thisTrackNum][note.dataset.x]
+    const thisTrack = trackInfos[thisTrackNum]
 
-    thisArray.splice(thisArray.indexOf({
+    thisTrack[note.dataset.x].splice(thisTrack[note.dataset.x].indexOf({
         pitch: note.dataset.pitch,
-        x: note.dataset.x,
+        x: Number(note.dataset.x),
         layer: note.dataset.layer,
+        status: 'enable'
+    }), 1)
+
+    thisTrack[Number(note.dataset.x) + 1].splice(thisTrack[Number(note.dataset.x) + 1].indexOf({
+        pitch: note.dataset.pitch,
+        x: Number(note.dataset.x) + 1,
+        layer: thisTrackNum,
+        status: 'disable'
     }), 1)
 
     note.classList.remove('inserted')
+    note.setAttribute("draggable", "false")
 }
 
-function createNote(x, y, layerInfo) {
+function deleteLongNote(note) {
+
+    const origins = getLongNotesOrigins(note.dataset.x, note.dataset.pitch)
+
+    for (let i = Number(origins[0]); i <= Number(origins[1]); i++) {
+        const clearNote = document.querySelector(`[data-x="${i}"][data-pitch="${note.dataset.pitch}"]`)
+
+        clearNote.classList.remove('inserted', 'start', 'end', 'long')
+        clearNote.setAttribute('draggable', 'false')
+    }
+
+    const thisTrack = trackInfos[thisTrackNum]
+
+    const frontParsedTrack = []
+    for (const value of thisTrack[origins[0]]) {
+        frontParsedTrack.push(JSON.stringify(value))
+    }
+    const backParsedTrack = []
+    for (const value of thisTrack[origins[1] + 1]) {
+        backParsedTrack.push(JSON.stringify(value))
+    }
+
+    console.log(frontParsedTrack)
+    console.log(backParsedTrack)
+
+
+    console.log(JSON.stringify({
+        pitch: note.dataset.pitch,
+        x: origins[1] + 1,
+        layer: thisTrackNum,
+        status: 'disable'
+    }))
+
+    console.log(JSON.stringify({
+        pitch: note.dataset.pitch,
+        x: origins[0],
+        layer: thisTrackNum,
+        status: 'enable'
+    }))
+
+    console.log(frontParsedTrack.indexOf(
+        JSON.stringify({
+            pitch: note.dataset.pitch,
+            x: origins[0],
+            layer: thisTrackNum,
+            status: 'enable'
+        })
+    ))
+
+    thisTrack[origins[0]].splice(frontParsedTrack.indexOf(
+        JSON.stringify({
+            pitch: note.dataset.pitch,
+            x: origins[0],
+            layer: thisTrackNum,
+            status: 'enable'
+        })
+    ), 1)
+
+    thisTrack[origins[1] + 1].splice(backParsedTrack.indexOf(
+        JSON.stringify({
+            pitch: note.dataset.pitch,
+            x: origins[1] + 1,
+            layer: thisTrackNum,
+            status: 'disable'
+        })
+    ), 1)
+
+    stopSound(note.dataset.pitch)
+}
+
+function getLongNotesOrigins(domainIdx, domainPitch) {
+    let originStart = Number(domainIdx)
+    for (let i = Number(domainIdx); i >= 0; i--) {
+        const thisNote = document.querySelector(`[data-x="${i}"][data-pitch="${domainPitch}"]`)
+        if (thisNote.classList.contains('start')) {
+            originStart = i;
+            break;
+        }else if (!thisNote.classList.contains('long')) {
+            break;
+        }
+    }
+
+
+    let originEnd = Number(domainIdx)
+    for (let i = Number(domainIdx); i < trackOneBlockSize * trackLongSize; i++) {
+        const thisNote = document.querySelector(`[data-x="${i}"][data-pitch="${domainPitch}"]`)
+        if (thisNote.classList.contains('end')) {
+            originEnd = i;
+            break;
+        }else if (!thisNote.classList.contains('long')) {
+            break;
+        }
+    }
+
+    return [originStart, originEnd]
+}
+
+let startIdx, endIdx, dragPitch
+
+const isContinued = []
+
+function createNote(x, y) {
     const note = document.createElement('div')
     note.classList.add('note')
     const isWhiteNote = [0, 2, 4, 6, 7, 9, 11].includes(y % 12)
 
     note.classList.add(isWhiteNote ? 'white' : 'black')
-    note.classList.add((x % trackOneBlockSize === trackOneBlockSize - 1) ? 'last' : 'normal')
-    note.classList.add((y % 12 === 0) ? 'end' : 'nothing')
+    note.classList.add((x % trackOneBlockSize === trackOneBlockSize - 1) ? 'bar-last' : 'normal')
+    note.classList.add((y % 12 === 0) ? 'top-end' : 'nothing')
 
     note.dataset.pitch = `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
     note.dataset.x = x
 
-    if (Array.isArray(layerInfo) && layerInfo.filter((thisNote) => thisNote["pitch"] === note.dataset.pitch).length !== 0) {
-        note.classList.add('inserted')
+    const thisLayer = trackInfos[thisTrackNum]
+
+    const parsedLayer = JSON.stringify(thisLayer[x])
+    const parsedNextLayer = JSON.stringify(thisLayer[x + 1])
+
+    if (parsedLayer.includes(
+        JSON.stringify({
+            pitch: note.dataset.pitch,
+            x: x,
+            layer: thisTrackNum,
+            status: 'enable'
+        })
+    )) {
+        if(parsedNextLayer.includes(
+            JSON.stringify({
+                pitch: note.dataset.pitch,
+                x: x + 1,
+                layer: thisTrackNum,
+                status: 'disable'
+            })
+        )) {
+            note.classList.add('inserted')
+        }else {
+            note.classList.add('start')
+            isContinued[y] = true
+        }
+    }
+
+    if (parsedLayer.includes(
+        JSON.stringify({
+            pitch: note.dataset.pitch,
+            x: x,
+            layer: thisTrackNum,
+            status: 'disable'
+        })
+    )) {
+        const beforeNote = document.querySelector(`[data-x="${x - 1}"][data-pitch="${note.dataset.pitch}"]`)
+
+        if (isContinued) {
+            beforeNote.classList.add('end')
+            isContinued[y] = false
+        }
+
+        beforeNote.setAttribute('draggable', 'true')
+    }
+
+    if (isContinued[y]) {
+        note.classList.add('inserted', 'long')
     }
 
     note.addEventListener('mousedown', () => {
@@ -116,7 +291,8 @@ function createNote(x, y, layerInfo) {
                 playNote(note)
                 saveNote(note)
             }else {
-                deleteNote(note)
+                if (note.classList.contains('long')) deleteLongNote(note)
+                else deleteNote(note)
             }
         }
     })
@@ -127,10 +303,115 @@ function createNote(x, y, layerInfo) {
                 playNote(note)
                 saveNote(note)
             }else {
-                deleteNote(note)
+                if (note.classList.contains('long')) deleteLongNote(note)
+                else deleteNote(note)
             }
         }
     })
+
+    // TODO 노트 길이 조절 관련 이벤트 처리
+    note.addEventListener('dragend', () => {
+        // + 보여주는 범위 없애기
+
+        let origins = getLongNotesOrigins(startIdx, dragPitch)
+
+        if (!note.classList.contains('inserted')) return
+        if (note.classList.contains('long') && !note.classList.contains('end')) return
+
+        if (endIdx - startIdx > 0) {
+            let nextLongIdx = startIdx
+            for (let i = Number(startIdx) + 1; i < trackOneBlockSize * trackLongSize; i++) {
+                const thisNote = document.querySelector(`[data-x="${i}"][data-pitch="${dragPitch}"]`)
+                nextLongIdx = i;
+                if (thisNote.classList.contains('inserted')) break;
+            }
+
+            const setEnd = Math.min(Number(endIdx), Number(nextLongIdx - 1))
+
+            for (let i = Number(startIdx); i <= setEnd; i++) {
+                const note = document.querySelector(`[data-x="${i}"][data-pitch="${dragPitch}"]`)
+
+
+                if (!note.classList.contains('inserted')) note.classList.add('inserted')
+                note.classList.add('long')
+                note.setAttribute('draggable', 'false')
+
+                if (i == startIdx) {
+                    if (startIdx != origins[0]) { // 이미 긴 노트를 연장 시킬 경우
+                        note.classList.remove('end')
+                    }else {
+                        note.classList.add('start')
+                    }
+                }
+
+                if (!note.classList.contains('start') && i == setEnd) {
+                    note.setAttribute('draggable', 'true')
+                    note.classList.add('end')
+                }
+            }
+
+            // 트랙 내용 변경
+            const deleteArray = trackInfos[thisTrackNum][origins[1] + 1]
+            deleteArray.splice(deleteArray.indexOf({
+                pitch: dragPitch,
+                x: origins[1],
+                layer: thisTrackNum,
+                status: 'disable'
+            }), 1)
+
+            const addArray = trackInfos[thisTrackNum][setEnd + 1]
+            addArray.push({
+                pitch: dragPitch,
+                x: setEnd + 1,
+                layer: thisTrackNum,
+                status: 'disable'
+            })
+        }else {
+            if (origins[0] == startIdx) return;
+
+            const setEnd = Math.max(Number(endIdx), Number(origins[0]))
+            for (let i = setEnd + 1; i <= startIdx; i++) {
+                const note = document.querySelector(`[data-x="${i}"][data-pitch="${dragPitch}"]`)
+                note.classList.remove('inserted', 'long', 'end')
+                note.setAttribute('draggable', 'false')
+            }
+
+            const firstNote = document.querySelector(`[data-x="${setEnd}"][data-pitch="${dragPitch}"]`)
+            if (setEnd == origins[0]) {
+                firstNote.classList.remove('long', 'start')
+            }else {
+                firstNote.classList.add('end')
+            }
+            firstNote.setAttribute('draggable', 'true')
+
+            // 트랙 내용 변경
+            const deleteArray = trackInfos[thisTrackNum][origins[1] + 1]
+            deleteArray.splice(deleteArray.indexOf({
+                pitch: dragPitch,
+                x: origins[1] + 1,
+                layer: thisTrackNum,
+                status: 'disable'
+            }), 1)
+
+            const addArray = trackInfos[thisTrackNum][setEnd + 1]
+            addArray.push({
+                pitch: dragPitch,
+                x: setEnd + 1,
+                layer: thisTrackNum,
+                status: 'disable'
+            })
+        }
+    })
+    note.addEventListener('dragstart', () => {
+        startIdx = note.dataset.x
+        dragPitch = note.dataset.pitch
+    })
+    note.addEventListener('dragenter', () => {
+
+        // TODO : 예상 노트길이 보여주기
+        endIdx = note.dataset.x
+    })
+
     return note
 }
 
@@ -227,7 +508,7 @@ function createLayer(index) {
         })
         layer.id = "selectedLayer"
 
-        thisTrackNum = layer.dataset.layer
+        thisTrackNum = Number(layer.dataset.layer)
 
         rendering()
     })
@@ -270,6 +551,8 @@ function stop() {
 function bpmReset() {
     const bpm = document.querySelector("#bpmValue").value
 
+    Tone.getTransport().bpm.rampTo(bpm, 0.001)
+
     if (playNavigateId) {
         clearInterval(playNavigateId)
 
@@ -293,7 +576,7 @@ function rendering() {
             const noteList = document.createElement('div')
             for (let i = 0; i < 7; i++)
                 for (let j = 0; j < 12; j++)
-                    noteList.appendChild(createNote(k + o * trackOneBlockSize, i * 12 + j, track[k + o * trackOneBlockSize]))
+                    noteList.appendChild(createNote(k + o * trackOneBlockSize, i * 12 + j))
 
             noteList.classList.add('noteList')
             base.appendChild(noteList)
@@ -335,14 +618,12 @@ function rendering() {
 
 function offAllMIDI() {
     for (let s = 1; s <= 7; s++) {
-        for (let i = 0; i < keyBoardMIDIList.length; i++) {
-            if (pressedKeyBoard[i]) {
-                let thisPitch = pitch[i % 12]
-                thisPitch += (midiScale + Math.floor(i / 12)).toString()
+        for (let i = 0; i < 12; i++) {
+            let thisPitch = pitch[i % 12]
+            thisPitch += s
 
-                pressedKeyBoard[i] = false
-                synth.triggerRelease(thisPitch)
-            }
+            pressedKeyBoard[i] = false
+            synth.triggerRelease(thisPitch)
         }
 
     }
@@ -386,6 +667,8 @@ function resetNavigate() {
 
     navigate.style.marginLeft = `${- scrollX + 136}px`
     navigateX = -scrollX + 136
+
+    offAllMIDI()
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -434,6 +717,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if(isNaN(bpm.value) || bpm.value <= 0) {
             bpm.value = 120
         }
+
         bpmReset()
     })
 
@@ -507,6 +791,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     try {
                         bpm.value = parsed.bpm
+                        bpmReset()
                         aliveLayer = parsed.layer
 
                         deleteLayerQueue.splice(deleteLayerQueue.length - 1)
@@ -546,6 +831,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 pitch: note.pitch,
                                 x: note.x,
                                 layer: note.layer,
+                                status: note.status,
                             }
 
                             thisArray.push(noteObj)
@@ -585,9 +871,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 if(array.length !== 0) {
                     for (const node of array) {
                         note.push({
-                            pitch: node['pitch'],
-                            x: node['x'],
-                            layer: value
+                            pitch: node.pitch,
+                            x: node.x,
+                            layer: value,
+                            status: node.status
                         })
                     }
                 }
@@ -616,10 +903,6 @@ document.addEventListener("DOMContentLoaded", () => {
         URL.revokeObjectURL(url)
     })
 
-    document.addEventListener('mouseleave', () => {
-        offAllMIDI()
-    })
-
     window.addEventListener('keydown', (event) => {
         if (event.key === ' ') {
             event.preventDefault()
@@ -636,6 +919,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 console.log("play")
 
+                console.log(trackInfos)
+
                 playNavigateId = setInterval(() => playNavigate(bpm.value), 10)
                 playMusic()
                 playMusicId = setInterval(playMusic, 60 / bpm.value * 1000 / beat.value)
@@ -643,23 +928,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 console.log("stop!")
                 stop()
+                offAllMIDI()
             }
 
             isPlaying = !isPlaying
         }
 
         if (event.key === 'Escape') {
-            if (isPlaying) {
-                stop()
-
-                isPlaying = !isPlaying
-            }
-            if (isIndexed) isIndexed = false;
-
-            navigateAt = 0
-
-            navigate.style.marginLeft = `${- scrollX + 136}px`
-            navigateX = -scrollX + 136
+            resetNavigate()
         }
 
         if (event.key.toLowerCase() === 'b') {

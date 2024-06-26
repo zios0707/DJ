@@ -53,6 +53,10 @@ let midiScale = 4;
 
 const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
+function getPitch(y) {
+    return `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
+}
+
 function playNote(notes) {
 
     if (typeof notes === "object") {
@@ -232,7 +236,7 @@ function createNote(x, y) {
     note.classList.add((x % trackOneBlockSize === trackOneBlockSize - 1) ? 'bar-last' : 'normal')
     note.classList.add((y % 12 === 0) ? 'top-end' : 'nothing')
 
-    note.dataset.pitch = `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
+    note.dataset.pitch = getPitch(y)
     note.dataset.x = x
 
     const thisLayer = trackInfos[thisTrackNum]
@@ -424,7 +428,7 @@ function createKeyNote(index, scale) {
         ([0, 7].includes(index)) ? 'side' : 'nothing'
     )
 
-    keyNote.dataset.pitch = `${pitch[11 - index] + scale}`
+    keyNote.dataset.pitch = getPitch(83 - ((scale - 1) * 12 + 11 - index))
 
     keyNote.addEventListener('mousedown', () => {
         playNote(keyNote)

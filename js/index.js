@@ -51,6 +51,17 @@ let brushMode = false
 let midiMode = false
 let midiScale = 4;
 
+let codeMode = false;
+let codeInfo = null; // {}
+// onScale : true 라면 scale 에 따라 배치 false 라면 마우스 위치에 따라 배치
+
+// notes : 값들은 배열로. 0, 1, 2, 3, 4, 5, 6, ... 12 와 같이 됨
+
+// 예 :
+// {
+//     onScale: false,
+//     notes: [0, 3, 7] (m 코드)
+// }
 const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
 function getPitch(y) {
@@ -288,6 +299,14 @@ function createNote(x, y) {
     if (isContinued[y]) {
         note.classList.add('inserted', 'long')
     }
+
+    note.addEventListener('mouseenter', () => {
+        if (codeMode) {
+            console.log(`${x} ${note.dataset.pitch}`)
+            console.log(codeInfo.onScale)
+            console.log(codeInfo.notes)
+        }
+    })
 
     note.addEventListener('mousedown', () => {
         if (brushMode) {
@@ -657,6 +676,25 @@ function toggleMode(mode) {
     }
 }
 
+function toggleCodeHelper() {
+    const codeText = document.querySelector('#codeText')
+    if (codeText.style.display !== "none") { // 있으면
+        console.log('code mode off')
+        codeMode = false;
+
+        codeText.style.display = "none"
+    }else { // 없으면
+        console.log('code mode on')
+        codeMode = true;
+
+        codeText.style.display = "inline-block"
+        codeText.focus()
+        codeText.value = 'M'
+    }
+
+
+}
+
 function resetNavigate() {
     const navigate = document.querySelector("#navigate")
 
@@ -674,6 +712,23 @@ function resetNavigate() {
 
     offAllMIDI()
 }
+
+document.addEventListener('click', (e) => {
+    e.preventDefault()
+})
+
+document.addEventListener('mousemove', (e) => {
+
+    const codeText = document.querySelector('#codeText')
+
+    if (codeText) {
+        let mouseX = e.pageX + 28 - scrollX; // document의 x좌표값
+        let mouseY = e.pageY + 20 - scrollY; // document의 y좌표값
+
+        codeText.style.left = mouseX + 'px';
+        codeText.style.top = mouseY + 'px';
+    }
+})
 
 document.addEventListener("DOMContentLoaded", () => {
     // 노트 양산 + 위치표 양산
@@ -907,6 +962,35 @@ document.addEventListener("DOMContentLoaded", () => {
         URL.revokeObjectURL(url)
     })
 
+    // 코드 헬퍼 조작작
+    const codeHelper = document.querySelector("#codeText")
+
+    codeHelper.addEventListener('blur', (e) => {
+
+        console.log('blur!!')
+        toggleCodeHelper()
+    })
+
+    codeHelper.addEventListener('input', () => {
+        const code = codeHelper.value;
+        const isNonePitch = code.toLowerCase().startsWith('m')
+        const codePitch = code.charAt(0) // isNonePitch 가 false 라는 한 해서 사용 가능
+
+        const codeM = (isNonePitch) ? code.charAt(0) : code.charAt(1)
+
+        // TODO : 코드 분석
+        const addition = (isNonePitch) ? code.splice(1)[1] : code.splice(2)[1]
+
+        console.log(isNonePitch, codePitch)
+
+        const setCode = {
+            onScale: true,
+            notes: [0, 4, 7] // default : M
+        }
+
+        codeInfo = setCode
+    })
+
     window.addEventListener('keydown', (event) => {
         if (event.key === ' ') {
             event.preventDefault()
@@ -939,7 +1023,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (event.key === 'Escape') {
-            resetNavigate()
+            if (codeMode) {
+                codeHelper.blur()
+            }else {
+                resetNavigate()
+            }
         }
 
         if (event.key.toLowerCase() === 'b') {
@@ -961,6 +1049,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (idx < 3 && midiScale > 1) midiScale--
             else if (idx > 2 && midiScale < 7) midiScale++
+        }
+
+        if (event.key.toLowerCase() === 'c') {
+            if (!codeMode) {
+
+                event.preventDefault()
+                toggleCodeHelper()
+            }
         }
 
         if (keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {

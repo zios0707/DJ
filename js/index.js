@@ -13,7 +13,7 @@ function createTrackInfoNewOne(index) {
 
     const track = []
 
-    for (let i = 0; i < trackOneBlockSize * trackLongSize; i++) track.push([])
+    for (let i = 0; i < trackOneBlockSize * trackLongSize + 1; i++) track.push([])
 
     trackInfos[index] = track
 }
@@ -24,12 +24,41 @@ function overwriteAllTrackBySize() {
 
         const track = trackInfos[trackNum]
 
-        const newTrackSize = trackOneBlockSize * trackLongSize
+        const newTrackSize = trackOneBlockSize * trackLongSize + 1
 
         if (track.length < newTrackSize) {
             const diff = newTrackSize - track.length
             for (let i = 0; i < diff; i++) track.push([])
         }else if(track.length > newTrackSize) {
+            const pitchActive = []
+            for (let i = newTrackSize; i < track.length; i++) {
+                for (const node of track[i]) {
+                    if (node.status === "disable" && pitchActive[parsePitch(node.pitch)] === undefined) {
+                        pitchActive[parsePitch(node.pitch)] = true;
+                    }
+                    if (node.status === "enable") {
+                        pitchActive[parsePitch(node.pitch)] = false;
+                    }
+                }
+            }
+
+            const addList = []
+            pitchActive.forEach((value, index) => {
+                if (value) {
+                    console.log(index)
+                    addList.push(
+                        Note(
+                            getPitch(index),
+                            newTrackSize - 1,
+                            trackNum,
+                            false
+                        )
+                    )
+                }
+            })
+
+
+            track[newTrackSize - 1].push(...addList)
             track.splice(newTrackSize, track.length - newTrackSize)
         }
     })
@@ -68,6 +97,29 @@ function getPitch(y) {
     return `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
 }
 
+function parsePitch(pit) {
+    const scale = pit.slice(-1)
+    pit = pit.slice(0, -1)
+
+    return 84 - ((scale - 1) * 12 + pitch.indexOf(pit) + 1)
+}
+
+function Note(pitch, x, layer, status) {
+    if(typeof x !== "number") {
+        x = Number(x)
+    }
+    if(typeof layer !== "number") {
+        layer = Number(layer)
+    }
+    return {
+        pitch: pitch,
+        x: x,
+        layer: layer,
+        status: (typeof status === "string") ? status : (status) ? 'enable' : 'disable'
+
+    }
+}
+
 function playNote(notes) {
 
     if (typeof notes === "object") {
@@ -98,18 +150,23 @@ function stopSound(pitch) {
 function saveNote(note) {
     const thisTrack = trackInfos[thisTrackNum]
 
-    thisTrack[note.dataset.x].push({
-        pitch: note.dataset.pitch,
-        x: Number(note.dataset.x),
-        layer: thisTrackNum,
-        status: 'enable'
-    })
-    thisTrack[Number(note.dataset.x) + 1].push({
-            pitch: note.dataset.pitch,
-            x: Number(note.dataset.x + 1),
-            layer: thisTrackNum,
-            status: 'disable'
-        }
+    const x = Number(note.dataset.x)
+
+    thisTrack[x].push(
+        Note(
+            note.dataset.pitch,
+            x,
+            thisTrackNum,
+            true
+        )
+    )
+    thisTrack[x + 1].push(
+        Note(
+            note.dataset.pitch,
+            x + 1,
+            thisTrackNum,
+            false
+        )
     )
 
     note.classList.add('inserted')
@@ -119,19 +176,25 @@ function saveNote(note) {
 function deleteNote(note) {
     const thisTrack = trackInfos[thisTrackNum]
 
-    thisTrack[note.dataset.x].splice(thisTrack[note.dataset.x].indexOf({
-        pitch: note.dataset.pitch,
-        x: Number(note.dataset.x),
-        layer: note.dataset.layer,
-        status: 'enable'
-    }), 1)
+    const x = Number(note.dataset.x)
 
-    thisTrack[Number(note.dataset.x) + 1].splice(thisTrack[Number(note.dataset.x) + 1].indexOf({
-        pitch: note.dataset.pitch,
-        x: Number(note.dataset.x) + 1,
-        layer: thisTrackNum,
-        status: 'disable'
-    }), 1)
+    thisTrack[x].splice(thisTrack[x].indexOf(
+        Note(
+            note.dataset.pitch,
+            x,
+            thisTrackNum,
+            true
+        )
+    ), 1)
+
+    thisTrack[x + 1].splice(thisTrack[x + 1].indexOf(
+        Note(
+            note.dataset.pitch,
+            x + 1,
+            thisTrackNum,
+            false
+        )
+    ), 1)
 
     note.classList.remove('inserted')
     note.setAttribute("draggable", "false")
@@ -159,49 +222,26 @@ function deleteLongNote(note) {
         backParsedTrack.push(JSON.stringify(value))
     }
 
-    console.log(frontParsedTrack)
-    console.log(backParsedTrack)
-
-
-    console.log(JSON.stringify({
-        pitch: note.dataset.pitch,
-        x: origins[1] + 1,
-        layer: thisTrackNum,
-        status: 'disable'
-    }))
-
-    console.log(JSON.stringify({
-        pitch: note.dataset.pitch,
-        x: origins[0],
-        layer: thisTrackNum,
-        status: 'enable'
-    }))
-
-    console.log(frontParsedTrack.indexOf(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: origins[0],
-            layer: thisTrackNum,
-            status: 'enable'
-        })
-    ))
-
     thisTrack[origins[0]].splice(frontParsedTrack.indexOf(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: origins[0],
-            layer: thisTrackNum,
-            status: 'enable'
-        })
+        JSON.stringify(
+            Note(
+                note.dataset.pitch,
+                origins[0],
+                thisTrackNum,
+                true
+            )
+        )
     ), 1)
 
     thisTrack[origins[1] + 1].splice(backParsedTrack.indexOf(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: origins[1] + 1,
-            layer: thisTrackNum,
-            status: 'disable'
-        })
+        JSON.stringify(
+            Note(
+                note.dataset.pitch,
+                origins[1] + 1,
+                thisTrackNum,
+                false
+            )
+        )
     ), 1)
 
     stopSound(note.dataset.pitch)
@@ -236,7 +276,7 @@ function getLongNotesOrigins(domainIdx, domainPitch) {
 
 let startIdx, endIdx, dragPitch
 
-const isContinued = []
+let isContinued = []
 
 function createNote(x, y) {
     const note = document.createElement('div')
@@ -256,20 +296,24 @@ function createNote(x, y) {
     const parsedNextLayer = JSON.stringify(thisLayer[x + 1])
 
     if (parsedLayer.includes(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: x,
-            layer: thisTrackNum,
-            status: 'enable'
-        })
+        JSON.stringify(
+            Note(
+                note.dataset.pitch,
+                x,
+                thisTrackNum,
+                true
+            )
+        )
     )) {
         if(parsedNextLayer.includes(
-            JSON.stringify({
-                pitch: note.dataset.pitch,
-                x: x + 1,
-                layer: thisTrackNum,
-                status: 'disable'
-            })
+            JSON.stringify(
+                Note(
+                    note.dataset.pitch,
+                    x + 1,
+                    thisTrackNum,
+                    false
+                )
+            )
         )) {
             note.classList.add('inserted')
         }else {
@@ -278,13 +322,16 @@ function createNote(x, y) {
         }
     }
 
-    if (parsedLayer.includes(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: x,
-            layer: thisTrackNum,
-            status: 'disable'
-        })
+    console.log()
+    if (x === trackOneBlockSize * trackLongSize - 1 ||parsedLayer.includes(
+        JSON.stringify(
+            Note(
+                note.dataset.pitch,
+                x,
+                thisTrackNum,
+                false
+            )
+        )
     )) {
         const beforeNote = document.querySelector(`[data-x="${x - 1}"][data-pitch="${note.dataset.pitch}"]`)
 
@@ -341,14 +388,20 @@ function createNote(x, y) {
         if (!note.classList.contains('inserted')) return
         if (note.classList.contains('long') && !note.classList.contains('end')) return
 
-        if (endIdx - startIdx > 0) {
+        if (endIdx - startIdx > 0) { // 앞으로 늘어난 경우
             let nextLongIdx = startIdx
-            for (let i = Number(startIdx) + 1; i < trackOneBlockSize * trackLongSize; i++) {
+            for (let i = Number(startIdx) + 1; i < trackOneBlockSize * trackLongSize + 1; i++) {
+                if(i === trackOneBlockSize * trackLongSize) {
+                    nextLongIdx = i;
+                    break;
+                }
+
                 const thisNote = document.querySelector(`[data-x="${i}"][data-pitch="${dragPitch}"]`)
                 nextLongIdx = i;
                 if (thisNote.classList.contains('inserted')) break;
             }
 
+            console.log(endIdx, nextLongIdx - 1)
             const setEnd = Math.min(Number(endIdx), Number(nextLongIdx - 1))
 
             for (let i = Number(startIdx); i <= setEnd; i++) {
@@ -375,12 +428,14 @@ function createNote(x, y) {
 
             // 트랙 내용 변경
             const deleteArray = trackInfos[thisTrackNum][origins[1] + 1]
-            deleteArray.splice(deleteArray.indexOf({
-                pitch: dragPitch,
-                x: origins[1],
-                layer: thisTrackNum,
-                status: 'disable'
-            }), 1)
+            deleteArray.splice(deleteArray.indexOf(
+                Note(
+                    dragPitch,
+                    origins[1],
+                    thisTrackNum,
+                    false
+                )
+            ), 1)
 
             const addArray = trackInfos[thisTrackNum][setEnd + 1]
             addArray.push({
@@ -389,8 +444,8 @@ function createNote(x, y) {
                 layer: thisTrackNum,
                 status: 'disable'
             })
-        }else {
-            if (origins[0] == startIdx) return;
+        }else { // 뒤로 늘어날 경우
+            if (origins[0] == startIdx) return; // 단일 노드일경우
 
             const setEnd = Math.max(Number(endIdx), Number(origins[0]))
             for (let i = setEnd + 1; i <= startIdx; i++) {
@@ -409,20 +464,24 @@ function createNote(x, y) {
 
             // 트랙 내용 변경
             const deleteArray = trackInfos[thisTrackNum][origins[1] + 1]
-            deleteArray.splice(deleteArray.indexOf({
-                pitch: dragPitch,
-                x: origins[1] + 1,
-                layer: thisTrackNum,
-                status: 'disable'
-            }), 1)
+            deleteArray.splice(deleteArray.indexOf(
+                Note(
+                    dragPitch,
+                    origins[1] + 1,
+                    thisTrackNum,
+                    false
+                )
+            ), 1)
 
             const addArray = trackInfos[thisTrackNum][setEnd + 1]
-            addArray.push({
-                pitch: dragPitch,
-                x: setEnd + 1,
-                layer: thisTrackNum,
-                status: 'disable'
-            })
+            addArray.push(
+                Note(
+                    dragPitch,
+                    setEnd + 1,
+                    thisTrackNum,
+                    false
+                )
+            )
         }
     })
     note.addEventListener('dragstart', () => {
@@ -593,6 +652,8 @@ function rendering() {
 
     base.innerHTML = ''
     navigator.innerHTML = ''
+
+    isContinued = []
 
     for (let o = 0; o < trackLongSize; o++) {
         for (let k = 0; k < trackOneBlockSize; k++) {
@@ -886,12 +947,12 @@ document.addEventListener("DOMContentLoaded", () => {
                         for (const note of parsed.notes) {
                             const thisArray = trackInfos[note.layer][note.x]
 
-                            const noteObj = {
-                                pitch: note.pitch,
-                                x: note.x,
-                                layer: note.layer,
-                                status: note.status,
-                            }
+                            const noteObj = Note(
+                                note.pitch,
+                                note.x,
+                                note.layer,
+                                note.status
+                            )
 
                             thisArray.push(noteObj)
                         }
@@ -929,12 +990,14 @@ document.addEventListener("DOMContentLoaded", () => {
             trackInfos[value].forEach((array) => {
                 if(array.length !== 0) {
                     for (const node of array) {
-                        note.push({
-                            pitch: node.pitch,
-                            x: node.x,
-                            layer: value,
-                            status: node.status
-                        })
+                        note.push(
+                            Note(
+                                node.pitch,
+                                note.x,
+                                value,
+                                node.status
+                            )
+                        )
                     }
                 }
             })

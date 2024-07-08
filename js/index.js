@@ -81,14 +81,20 @@ let midiMode = false
 let midiScale = 4;
 
 let codeMode = false;
-let codeInfo = null; // {}
-// onScale : true 라면 scale 에 따라 배치 false 라면 마우스 위치에 따라 배치
+let codeInfo = { // default : M
+    scale: '',
+    m: 'M',
+    notes: [0, 4, 7]
+}
+// scale : 음정. 빈 문자열이라면 m, M7, dim 이런 꼬라지 라는 뜻
+
+// m : 메이저 오알 마이너. notes 보고 구분하긴 힘들어서
 
 // notes : 값들은 배열로. 0, 1, 2, 3, 4, 5, 6, ... 12 와 같이 됨
 
 // 예 :
 // {
-//     onScale: false,
+//     scale: "C",
 //     notes: [0, 3, 7] (m 코드)
 // }
 const synth = new Tone.PolySynth(Tone.Synth).toDestination();
@@ -350,8 +356,7 @@ function createNote(x, y) {
     note.addEventListener('mouseenter', () => {
         if (codeMode) {
             console.log(`${x} ${note.dataset.pitch}`)
-            console.log(codeInfo.onScale)
-            console.log(codeInfo.notes)
+            console.log(`${(codeInfo.scale) ? codeInfo.scale : note.dataset.pitch} ${codeInfo.notes}`)
         }
     })
 
@@ -1035,21 +1040,21 @@ document.addEventListener("DOMContentLoaded", () => {
     })
 
     codeHelper.addEventListener('input', () => {
-        const code = codeHelper.value;
-        const isNonePitch = code.toLowerCase().startsWith('m')
-        const codePitch = code.charAt(0) // isNonePitch 가 false 라는 한 해서 사용 가능
+        const code = codeHelper.value; // String
 
-        const codeM = (isNonePitch) ? code.charAt(0) : code.charAt(1)
+        const codeRegax = /^([A-G])?([Mm])?(\w*)?$/;
 
-        // TODO : 코드 분석
-        const addition = (isNonePitch) ? code.splice(1)[1] : code.splice(2)[1]
+        const matches = code.match(codeRegax)
 
-        console.log(isNonePitch, codePitch)
+        console.log(`${matches[1]} - ${matches[2]} - ${matches[3]}`)
 
         const setCode = {
-            onScale: true,
+            scale: matches[1],
+            m: matches[2],
             notes: [0, 4, 7] // default : M
         }
+
+
 
         codeInfo = setCode
     })

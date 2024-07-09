@@ -354,7 +354,7 @@ function createNote(x, y) {
     }
 
     note.addEventListener('mouseenter', () => {
-        if (codeMode) {
+        if (chordMode) {
             console.log(`${x} ${note.dataset.pitch}`)
             console.log(`${(codeInfo.scale) ? codeInfo.scale : note.dataset.pitch} ${codeInfo.notes}`)
         }
@@ -742,20 +742,20 @@ function toggleMode(mode) {
     }
 }
 
-function toggleCodeHelper() {
-    const codeText = document.querySelector('#codeText')
-    if (codeText.style.display !== "none") { // 있으면
+function toggleChordHelper() {
+    const chordText = document.querySelector('#chordText')
+    if (chordText.style.display !== "none") { // 있으면
         console.log('code mode off')
-        codeMode = false;
+        chordMode = false;
 
-        codeText.style.display = "none"
+        chordText.style.display = "none"
     }else { // 없으면
         console.log('code mode on')
-        codeMode = true;
+        chordMode = true;
 
-        codeText.style.display = "inline-block"
-        codeText.focus()
-        codeText.value = 'M'
+        chordText.style.display = "inline-block"
+        chordText.focus()
+        chordText.value = 'M'
     }
 
 
@@ -785,7 +785,7 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('mousemove', (e) => {
 
-    const codeText = document.querySelector('#codeText')
+    const codeText = document.querySelector('#chordText')
 
     if (codeText) {
         let mouseX = e.pageX + 28 - scrollX; // document의 x좌표값
@@ -1031,12 +1031,12 @@ document.addEventListener("DOMContentLoaded", () => {
     })
 
     // 코드 헬퍼 조작작
-    const codeHelper = document.querySelector("#codeText")
+    const codeHelper = document.querySelector("#chordText")
 
     codeHelper.addEventListener('blur', (e) => {
 
         console.log('blur!!')
-        toggleCodeHelper()
+        toggleChordHelper()
     })
 
     codeHelper.addEventListener('input', () => {
@@ -1091,7 +1091,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (event.key === 'Escape') {
-            if (codeMode) {
+            if (chordMode) {
                 codeHelper.blur()
             }else {
                 resetNavigate()
@@ -1120,10 +1120,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (event.key.toLowerCase() === 'c') {
-            if (!codeMode) {
+            if (!chordMode) {
 
                 event.preventDefault()
-                toggleCodeHelper()
+                toggleChordHelper()
             }
         }
 

@@ -197,7 +197,7 @@ body::-webkit-scrollbar {
 
 /* code mode */
 
-#codeText {
+#chordText {
     background: white;
     position: fixed;
     z-index: 10;

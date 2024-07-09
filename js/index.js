@@ -80,22 +80,27 @@ let brushMode = false
 let midiMode = false
 let midiScale = 4;
 
-let codeMode = false;
+let chordMode = false;
 let codeInfo = { // default : M
     scale: '',
     m: 'M',
+    additional: '',
     notes: [0, 4, 7]
 }
 // scale : 음정. 빈 문자열이라면 m, M7, dim 이런 꼬라지 라는 뜻
 
 // m : 메이저 오알 마이너. notes 보고 구분하긴 힘들어서
 
+// additional : 추가 화음. 위와 같은 이유로 여따가 같이 적음
+
 // notes : 값들은 배열로. 0, 1, 2, 3, 4, 5, 6, ... 12 와 같이 됨
 
 // 예 :
 // {
 //     scale: "C",
-//     notes: [0, 3, 7] (m 코드)
+//     m: 'm',
+//     additional: '7',
+//     notes: [0, 3, 7, 10] (m 코드)
 // }
 const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
@@ -361,7 +366,10 @@ function createNote(x, y) {
     })
 
     note.addEventListener('mousedown', () => {
-        if (brushMode) {
+
+        if (chordMode) {
+            // 보여지는 노트에 따라 화면에 표시 + 범위를 벗어나게 노트가 생성된다면 삭제
+        }else if (brushMode) {
             if (!note.classList.contains('inserted')) {
                 playNote(note)
                 saveNote(note)
@@ -373,7 +381,7 @@ function createNote(x, y) {
     })
 
     note.addEventListener('dblclick', () => {
-        if (!brushMode) {
+        if (!brushMode && !chordMode) {
             if (!note.classList.contains('inserted')) {
                 playNote(note)
                 saveNote(note)
@@ -1051,6 +1059,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const setCode = {
             scale: matches[1],
             m: matches[2],
+            additional: matches[3],
             notes: [0, 4, 7] // default : M
         }
 
@@ -1061,33 +1070,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.addEventListener('keydown', (event) => {
         if (event.key === ' ') {
-            event.preventDefault()
-            if (!isPlaying){
-                if (!isIndexed) {
-                    navigateAt = 0
-                    navigateX = -scrollX + 136
+            if (!chordMode) {
+                event.preventDefault()
+                if (!isPlaying){
+                    if (!isIndexed) {
+                        navigateAt = 0
+                        navigateX = -scrollX + 136
+                    }else {
+                        navigateX = -scrollX + defaultNavigateX
+                        navigateAt = defaultNavigateAt
+                    }
+
+
+
+                    console.log("play")
+
+                    console.log(trackInfos)
+
+                    playNavigateId = setInterval(() => playNavigate(bpm.value), 10)
+                    playMusic()
+                    playMusicId = setInterval(playMusic, 60 / bpm.value * 1000 / beat.value)
                 }else {
-                    navigateX = -scrollX + defaultNavigateX
-                    navigateAt = defaultNavigateAt
+
+                    console.log("stop!")
+                    stop()
+                    offAllMIDI()
                 }
 
-
-
-                console.log("play")
-
-                console.log(trackInfos)
-
-                playNavigateId = setInterval(() => playNavigate(bpm.value), 10)
-                playMusic()
-                playMusicId = setInterval(playMusic, 60 / bpm.value * 1000 / beat.value)
-            }else {
-
-                console.log("stop!")
-                stop()
-                offAllMIDI()
+                isPlaying = !isPlaying
             }
-
-            isPlaying = !isPlaying
         }
 
         if (event.key === 'Escape') {
@@ -1098,19 +1109,19 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        if (event.key.toLowerCase() === 'b') {
+        if (!chordMode && event.key.toLowerCase() === 'b') {
             toggleMode("brush")
 
             console.log(`brush mode ${(brushMode) ? "on" : "off"}`)
         }
 
-        if (event.key.toLowerCase() === 'm') {
+        if (!chordMode && event.key.toLowerCase() === 'm') {
             toggleMode("midi")
 
             console.log(`midi mode ${(midiMode) ? "on" : "off"}`)
         }
 
-        if (['<', ',', '>', '.'].includes(event.key)) {
+        if (!chordMode && ['<', ',', '>', '.'].includes(event.key)) {
             let idx = ['<', ',', '>', '.'].indexOf(event.key)
 
             offAllMIDI()
@@ -1119,15 +1130,13 @@ document.addEventListener("DOMContentLoaded", () => {
             else if (idx > 2 && midiScale < 7) midiScale++
         }
 
-        if (event.key.toLowerCase() === 'c') {
-            if (!chordMode) {
-
-                event.preventDefault()
-                toggleChordHelper()
-            }
+        if (!chordMode && event.key.toLowerCase() === 'c') {
+            event.preventDefault()
+            offAllMIDI()
+            toggleChordHelper()
         }
 
-        if (keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
+        if (!chordMode && keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
             const index = keyBoardMIDIList.indexOf(event.key.toLowerCase())
 
             if(!pressedKeyBoard[index]) {
@@ -1141,7 +1150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     })
 
     window.addEventListener('keyup', (event) => {
-        if (keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
+        if (!chordMode && keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
             const index = keyBoardMIDIList.indexOf(event.key.toLowerCase())
 
             if (pressedKeyBoard[index]) {

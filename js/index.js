@@ -362,6 +362,8 @@ function createNote(x, y) {
         if (chordMode) {
             console.log(`${x} ${note.dataset.pitch}`)
             console.log(`${(codeInfo.scale) ? codeInfo.scale : note.dataset.pitch} ${codeInfo.notes}`)
+
+            renderChord()
         }
     })
 
@@ -787,6 +789,10 @@ function resetNavigate() {
     offAllMIDI()
 }
 
+function renderChord() {
+
+}
+
 document.addEventListener('click', (e) => {
     e.preventDefault()
 })
@@ -1065,7 +1071,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+
         codeInfo = setCode
+
+        renderChord()
     })
 
     window.addEventListener('keydown', (event) => {

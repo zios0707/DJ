@@ -81,7 +81,7 @@ let midiMode = false
 let midiScale = 4;
 
 let chordMode = false;
-let codeInfo = { // default : M
+let chordInfo = { // default : M
     scale: '',
     m: 'M',
     additional: '',
@@ -100,7 +100,7 @@ let codeInfo = { // default : M
 //     scale: "C",
 //     m: 'm',
 //     additional: '7',
-//     notes: [0, 3, 7, 10] (m 코드)
+//     notes: [0, 3, 7, 10] (m7 코드)
 // }
 const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
@@ -289,6 +289,10 @@ let startIdx, endIdx, dragPitch
 
 let isContinued = []
 
+let onMousePitch
+let onMouseX
+let chordModeIsOK
+
 function createNote(x, y) {
     const note = document.createElement('div')
     note.classList.add('note')
@@ -359,11 +363,13 @@ function createNote(x, y) {
     }
 
     note.addEventListener('mouseenter', () => {
+        onMousePitch = note.dataset.pitch
+        onMouseX = x
         if (chordMode) {
             console.log(`${x} ${note.dataset.pitch}`)
-            console.log(`${(codeInfo.scale) ? codeInfo.scale : note.dataset.pitch} ${codeInfo.notes}`)
+            console.log(`${(chordInfo.scale) ? chordInfo.scale : note.dataset.pitch} ${chordInfo.notes}`)
 
-            renderChord()
+            if (chordModeIsOK) renderChord()
         }
     })
 
@@ -759,6 +765,7 @@ function toggleChordHelper() {
         chordMode = false;
 
         chordText.style.display = "none"
+        clearChord()
     }else { // 없으면
         console.log('code mode on')
         chordMode = true;
@@ -789,12 +796,63 @@ function resetNavigate() {
     offAllMIDI()
 }
 
+let chordNotes = []
+
+function clearChord() {
+    for (const chordNote of chordNotes) {
+        if (chordNote) {
+            chordNote.classList.remove("preview")
+            chordNote.classList.remove("conflict")
+        }
+    }
+
+    chordNotes = []
+}
+
 function renderChord() {
+
+    clearChord()
+
+    const isBased = !!chordInfo.scale // 기초 화음을 알려주냐고
+
+    const flat = onMousePitch.charAt(1) === "#"
+
+    const parsedPitch = parsePitch(onMousePitch)
+    const thisPitch = onMousePitch.substring(0, 1 + flat)
+    const scale = onMousePitch.charAt(1 + flat)
+
+    // 노트들 쿼리셀렉터로 집어주기
+
+    for (const note of chordInfo.notes) {
+        chordNotes.push(document.querySelector(`[data-x="${onMouseX}"][data-pitch="${getPitch(
+            (isBased) ? 
+                84 - scale * 12 + 11 - note - pitch.indexOf(chordInfo.scale) :
+                parsedPitch - note
+        )}"]`))
+    }
+
+    if (chordNotes.includes(null)) {
+        clearChord()
+
+        throw "outRange Error"
+    }
+
+    const isConflict = !chordNotes.filter((value) => value.classList.contains("inserted"))
+
+    for (const chordNote of chordNotes) {
+        chordNote.classList.add("preview")
+        if (isConflict) chordNote.classList.add("conflict")
+    }
 
 }
 
 document.addEventListener('click', (e) => {
     e.preventDefault()
+})
+
+document.addEventListener('mousedown', (e) => {
+    // TODO : 보이는 노트 추가시키기
+    console.log("추가!")
 })
 
 document.addEventListener('mousemove', (e) => {
@@ -1054,27 +1112,80 @@ document.addEventListener("DOMContentLoaded", () => {
     })
 
     codeHelper.addEventListener('input', () => {
-        const code = codeHelper.value; // String
+        try {
+            const code = codeHelper.value; // String
 
-        const codeRegax = /^([A-G])?([Mm])?(\w*)?$/;
+            const codeRegax = /^([A-G])?([Mm])?(\w*)?$/;
 
-        const matches = code.match(codeRegax)
+            const matches = code.match(codeRegax)
 
-        console.log(`${matches[1]} - ${matches[2]} - ${matches[3]}`)
+            console.log(`${matches[1]} - ${matches[2]} - ${matches[3]}`)
+            if (matches[1] === matches[2] &&
+                matches[2] === matches[3] &&
+                matches[3] === undefined ||
+                matches[3] !== undefined &&
+                !["aug", "sus2", "sus4", "dim", "7", "9", "11", "13"].includes(matches[3])) {
+                throw "u dont no chord?"
+            }
 
-        const setCode = {
-            scale: matches[1],
-            m: matches[2],
-            additional: matches[3],
-            notes: [0, 4, 7] // default : M
+            const setCode = {
+                scale: matches[1],
+                m: matches[2],
+                additional: matches[3],
+                notes: [0, 4, 7] // default : M
+            }
+
+            if (setCode.additional !== undefined){
+                if (!isNaN(setCode.additional)) { // 도미넌트 화음류 (add는 취급 안해요)
+                    let dominant = Number(setCode.additional)
+
+                    if (dominant >= 7) {
+                        if (setCode.m === "M") setCode.notes.push(11)
+                        else setCode.notes.push(10)
+                    }
+                    if (dominant >= 9) {
+                        setCode.notes.push(14)
+                    }
+                    if (dominant >= 11) {
+                        setCode.notes.push(17)
+                    }
+                    if (dominant >= 13) {
+                        setCode.notes.push(21)
+                    }
+
+                }else {
+                    if (setCode.additional === "aug") {
+
+                    }
+                    if (setCode.additional.startsWith("sus")) {
+
+                    }
+                    if (setCode.additional === "dim") {
+
+                    }
+                }
+            }
+
+            if (setCode.m === "m") {
+                setCode.notes[1] -= 1
+            }else if(setCode.m === "M") {
+
+                if (setCode.notes.length > 3) {
+                    setCode.notes[3] += 1
+                }
+            }
+
+            chordInfo = setCode
+
+
+            chordModeIsOK = true;
+            renderChord()
+            codeHelper.style.backgroundColor = "#ffffffdd"
+        }catch (e) {
+            chordModeIsOK = false;
+            codeHelper.style.backgroundColor = "#ff000099"
         }
 
-
-
-
-        codeInfo = setCode
-
-        renderChord()
     })
 
     window.addEventListener('keydown', (event) => {

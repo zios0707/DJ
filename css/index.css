@@ -467,6 +467,15 @@ body::-webkit-scrollbar {
     background: #e0e0e0;
 }
 
+.note.preview {
+
+    background: #5f9ea099;
+}
+
+.note.preview.conflict {
+    background: #99000099;
+}
+
 .note.inserted {
     background: cadetblue;
 }

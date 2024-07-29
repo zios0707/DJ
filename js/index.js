@@ -45,7 +45,6 @@ function overwriteAllTrackBySize() {
             const addList = []
             pitchActive.forEach((value, index) => {
                 if (value) {
-                    console.log(index)
                     addList.push(
                         Note(
                             getPitch(index),
@@ -81,7 +80,9 @@ let midiMode = false
 let midiScale = 4;
 
 let chordMode = false;
-let chordInfo = { // default : M
+let chordInfo = {};
+
+const defaultChord = { // default : M
     scale: '',
     m: 'M',
     additional: '',
@@ -291,7 +292,7 @@ let isContinued = []
 
 let onMousePitch
 let onMouseX
-let chordModeIsOK
+let chordModeIsOK = true
 
 function createNote(x, y) {
     const note = document.createElement('div')
@@ -337,7 +338,6 @@ function createNote(x, y) {
         }
     }
 
-    console.log()
     if (x === trackOneBlockSize * trackLongSize - 1 ||parsedLayer.includes(
         JSON.stringify(
             Note(
@@ -366,18 +366,12 @@ function createNote(x, y) {
         onMousePitch = note.dataset.pitch
         onMouseX = x
         if (chordMode) {
-            console.log(`${x} ${note.dataset.pitch}`)
-            console.log(`${(chordInfo.scale) ? chordInfo.scale : note.dataset.pitch} ${chordInfo.notes}`)
-
             if (chordModeIsOK) renderChord()
         }
     })
 
     note.addEventListener('mousedown', () => {
-
-        if (chordMode) {
-            // 보여지는 노트에 따라 화면에 표시 + 범위를 벗어나게 노트가 생성된다면 삭제
-        }else if (brushMode) {
+        if (brushMode && !chordMode) {
             if (!note.classList.contains('inserted')) {
                 playNote(note)
                 saveNote(note)
@@ -400,7 +394,6 @@ function createNote(x, y) {
         }
     })
 
-    // TODO 노트 길이 조절 관련 이벤트 처리
     note.addEventListener('dragend', () => {
         // + 보여주는 범위 없애기
 
@@ -422,7 +415,6 @@ function createNote(x, y) {
                 if (thisNote.classList.contains('inserted')) break;
             }
 
-            console.log(endIdx, nextLongIdx - 1)
             const setEnd = Math.min(Number(endIdx), Number(nextLongIdx - 1))
 
             for (let i = Number(startIdx); i <= setEnd; i++) {
@@ -770,9 +762,14 @@ function toggleChordHelper() {
         console.log('code mode on')
         chordMode = true;
 
+        chordInfo = defaultChord
+
         chordText.style.display = "inline-block"
         chordText.focus()
         chordText.value = 'M'
+
+        //TODO:   vvv check chord 메서드를 추가해 싱글톤을 완벽하게 정리 시키기
+        renderChord()
     }
 
 
@@ -809,6 +806,8 @@ function clearChord() {
     chordNotes = []
 }
 
+let isConflict
+
 function renderChord() {
 
     clearChord()
@@ -834,10 +833,16 @@ function renderChord() {
     if (chordNotes.includes(null)) {
         clearChord()
 
-        throw "outRange Error"
+        return
     }
 
-    const isConflict = !chordNotes.filter((value) => value.classList.contains("inserted"))
+    if (!chordModeIsOK) {
+        clearChord()
+
+        return
+    }
+
+    isConflict = chordNotes.filter((value) => value.classList.contains("inserted")).length > 0
 
     for (const chordNote of chordNotes) {
         chordNote.classList.add("preview")
@@ -851,8 +856,15 @@ document.addEventListener('click', (e) => {
 })
 
 document.addEventListener('mousedown', (e) => {
-    // TODO : 보이는 노트 추가시키기
-    console.log("추가!")
+    if (chordMode && chordModeIsOK) {
+        if (chordNotes.length > 0 && !isConflict)
+            for (const note of chordNotes) {
+                saveNote(note)
+            }
+
+            rendering()
+        }
+    }
 })
 
 document.addEventListener('mousemove', (e) => {
@@ -1103,23 +1115,21 @@ document.addEventListener("DOMContentLoaded", () => {
     })
 
     // 코드 헬퍼 조작작
-    const codeHelper = document.querySelector("#chordText")
+    const chordHelper = document.querySelector("#chordText")
 
-    codeHelper.addEventListener('blur', (e) => {
+    chordHelper.addEventListener('blur', (e) => {
 
-        console.log('blur!!')
         toggleChordHelper()
     })
 
-    codeHelper.addEventListener('input', () => {
+    chordHelper.addEventListener('input', () => {
         try {
-            const code = codeHelper.value; // String
+            const chord = chordHelper.value; // String
 
-            const codeRegax = /^([A-G])?([Mm])?(\w*)?$/;
+            const chordRegax = /^([A-G])?([Mm])?(\w*)?$/;
 
-            const matches = code.match(codeRegax)
+            const matches = chord.match(chordRegax)
 
-            console.log(`${matches[1]} - ${matches[2]} - ${matches[3]}`)
             if (matches[1] === matches[2] &&
                 matches[2] === matches[3] &&
                 matches[3] === undefined ||
@@ -1128,62 +1138,73 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw "u dont no chord?"
             }
 
-            const setCode = {
+            const setChord = {
                 scale: matches[1],
                 m: matches[2],
                 additional: matches[3],
                 notes: [0, 4, 7] // default : M
             }
 
-            if (setCode.additional !== undefined){
-                if (!isNaN(setCode.additional)) { // 도미넌트 화음류 (add는 취급 안해요)
-                    let dominant = Number(setCode.additional)
+            let M3rd = true
+
+            if (setChord.additional !== undefined){
+                if (!isNaN(setChord.additional)) { // 도미넌트 화음류 (add는 취급 안해요)
+                    let dominant = Number(setChord.additional)
 
                     if (dominant >= 7) {
-                        if (setCode.m === "M") setCode.notes.push(11)
-                        else setCode.notes.push(10)
+                        setChord.notes.push(10)
                     }
                     if (dominant >= 9) {
-                        setCode.notes.push(14)
+                        setChord.notes.push(14)
                     }
                     if (dominant >= 11) {
-                        setCode.notes.push(17)
+                        setChord.notes.push(17)
                     }
                     if (dominant >= 13) {
-                        setCode.notes.push(21)
+                        setChord.notes.push(21)
                     }
 
                 }else {
-                    if (setCode.additional === "aug") {
-
+                    if (setChord.additional === "aug") {
+                        setChord.notes[2] += 1
                     }
-                    if (setCode.additional.startsWith("sus")) {
+                    if (setChord.additional.startsWith("sus")) {
+                        let num = setChord.additional.charAt(3)
 
+                        if (num === "2") {
+                            setChord.notes[1] -= 2
+                        }else {
+                            setChord.notes[1] += 1
+                        }
+
+                        M3rd = false;
                     }
-                    if (setCode.additional === "dim") {
-
+                    if (setChord.additional === "dim") {
+                        setChord.notes[1] -= 1
+                        setChord.notes[2] -= 1
                     }
                 }
             }
 
-            if (setCode.m === "m") {
-                setCode.notes[1] -= 1
-            }else if(setCode.m === "M") {
+            if (M3rd && setChord.m === "m") { // sus가 장 3도를 죽인다면 당연히 m 의 의미가 없어짐
+                setChord.notes[1] -= 1
+            }else if(setChord.m === "M") {
 
-                if (setCode.notes.length > 3) {
-                    setCode.notes[3] += 1
+                if (setChord.notes.length > 3) {
+                    setChord.notes[3] += 1
                 }
             }
 
-            chordInfo = setCode
+            chordInfo = setChord
 
 
             chordModeIsOK = true;
+            chordHelper.style.backgroundColor = "#ffffffdd"
             renderChord()
-            codeHelper.style.backgroundColor = "#ffffffdd"
         }catch (e) {
             chordModeIsOK = false;
-            codeHelper.style.backgroundColor = "#ff000099"
+            chordHelper.style.backgroundColor = "#ff000099"
+            renderChord()
         }
 
     })
@@ -1205,8 +1226,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     console.log("play")
 
-                    console.log(trackInfos)
-
                     playNavigateId = setInterval(() => playNavigate(bpm.value), 10)
                     playMusic()
                     playMusicId = setInterval(playMusic, 60 / bpm.value * 1000 / beat.value)
@@ -1223,7 +1242,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (event.key === 'Escape') {
             if (chordMode) {
-                codeHelper.blur()
+                chordHelper.blur()
             }else {
                 resetNavigate()
             }

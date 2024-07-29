@@ -472,7 +472,7 @@ body::-webkit-scrollbar {
     background: #5f9ea099;
 }
 
-.note.preview.conflict {
+.note.conflict {
     background: #99000099;
 }
 

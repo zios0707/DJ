@@ -6,12 +6,12 @@
     <link rel="stylesheet" href="../css/index.css" />
 </head>
 <body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/15.0.4/Tone.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.2/Tone.min.js"></script>
 <script src="../js/index.js"></script>
 <div id="header">
     <div id="bpm">
         <div class="bpmButton" id="bpmDown"></div>
-        <input type="text" id="bpmValue" maxlength="3" value="120">
+        <input type="text" id="bpmValue" maxlength="3" value="120" autocomplete="off">
         <div class="bpmButton" id="bpmUp"></div>
     </div>
     <div id="brush" class="mode">
@@ -22,21 +22,22 @@
     </div>
     <div id="infoBox">
         <div id="beat">
-            <input id="beatValue" maxlength="1" value="4"> / 4
+            <input id="beatValue" autocomplete="off" maxlength="1" value="4"> / 4
         </div>
         <div id="length">
-            <input id="layerLength" maxlength="2" value="40">
+            <input id="layerLength" autocomplete="off" maxlength="2" value="40">
         </div>
     </div>
     <div id="file">
         <p>DROP SAVEFILE</p>
-        <input type="file" id="file-input" accept="application/json" style="display: none;">
+        <input type="file" id="file-input" accept="application/json" autocomplete="off" style="display: none;">
     </div>
     <div id="export">
         save
     </div>
 </div>
 <div id="container">
+    <input id="chordText" type="text" autocomplete="off" style="display: none">
     <div id="body">
         <div id="layers">
             <div id="layerList">

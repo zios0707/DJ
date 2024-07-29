@@ -195,6 +195,14 @@ body::-webkit-scrollbar {
     border: black 4px solid;
 }
 
+/* code mode */
+
+#chordText {
+    background: white;
+    position: fixed;
+    z-index: 10;
+}
+
 /* main */
 
 #container {
@@ -457,6 +465,15 @@ body::-webkit-scrollbar {
 
 .note.black {
     background: #e0e0e0;
+}
+
+.note.preview {
+
+    background: #5f9ea099;
+}
+
+.note.conflict {
+    background: #99000099;
 }
 
 .note.inserted {

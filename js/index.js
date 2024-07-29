@@ -13,7 +13,7 @@ function createTrackInfoNewOne(index) {
 
     const track = []
 
-    for (let i = 0; i < trackOneBlockSize * trackLongSize; i++) track.push([])
+    for (let i = 0; i < trackOneBlockSize * trackLongSize + 1; i++) track.push([])
 
     trackInfos[index] = track
 }
@@ -24,12 +24,40 @@ function overwriteAllTrackBySize() {
 
         const track = trackInfos[trackNum]
 
-        const newTrackSize = trackOneBlockSize * trackLongSize
+        const newTrackSize = trackOneBlockSize * trackLongSize + 1
 
         if (track.length < newTrackSize) {
             const diff = newTrackSize - track.length
             for (let i = 0; i < diff; i++) track.push([])
         }else if(track.length > newTrackSize) {
+            const pitchActive = []
+            for (let i = newTrackSize; i < track.length; i++) {
+                for (const node of track[i]) {
+                    if (node.status === "disable" && pitchActive[parsePitch(node.pitch)] === undefined) {
+                        pitchActive[parsePitch(node.pitch)] = true;
+                    }
+                    if (node.status === "enable") {
+                        pitchActive[parsePitch(node.pitch)] = false;
+                    }
+                }
+            }
+
+            const addList = []
+            pitchActive.forEach((value, index) => {
+                if (value) {
+                    addList.push(
+                        Note(
+                            getPitch(index),
+                            newTrackSize - 1,
+                            trackNum,
+                            false
+                        )
+                    )
+                }
+            })
+
+
+            track[newTrackSize - 1].push(...addList)
             track.splice(newTrackSize, track.length - newTrackSize)
         }
     })
@@ -51,7 +79,58 @@ let brushMode = false
 let midiMode = false
 let midiScale = 4;
 
+let chordMode = false;
+let chordInfo = {};
+
+const defaultChord = { // default : M
+    scale: '',
+    m: 'M',
+    additional: '',
+    notes: [0, 4, 7]
+}
+// scale : 음정. 빈 문자열이라면 m, M7, dim 이런 꼬라지 라는 뜻
+
+// m : 메이저 오알 마이너. notes 보고 구분하긴 힘들어서
+
+// additional : 추가 화음. 위와 같은 이유로 여따가 같이 적음
+
+// notes : 값들은 배열로. 0, 1, 2, 3, 4, 5, 6, ... 12 와 같이 됨
+
+// 예 :
+// {
+//     scale: "C",
+//     m: 'm',
+//     additional: '7',
+//     notes: [0, 3, 7, 10] (m7 코드)
+// }
 const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+
+function getPitch(y) {
+    return `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
+}
+
+function parsePitch(pit) {
+    const scale = pit.slice(-1)
+    pit = pit.slice(0, -1)
+
+    return 84 - ((scale - 1) * 12 + pitch.indexOf(pit) + 1)
+}
+
+function Note(pitch, x, layer, status) {
+    if(typeof x !== "number") {
+        x = Number(x)
+    }
+    if(typeof layer !== "number") {
+        layer = Number(layer)
+    }
+    return {
+        pitch: pitch,
+        x: x,
+        layer: layer,
+        status: (typeof status === "string") ? status : (status) ? 'enable' : 'disable'
+
+    }
+}
 
 function playNote(notes) {
 
@@ -83,18 +162,23 @@ function stopSound(pitch) {
 function saveNote(note) {
     const thisTrack = trackInfos[thisTrackNum]
 
-    thisTrack[note.dataset.x].push({
-        pitch: note.dataset.pitch,
-        x: Number(note.dataset.x),
-        layer: thisTrackNum,
-        status: 'enable'
-    })
-    thisTrack[Number(note.dataset.x) + 1].push({
-            pitch: note.dataset.pitch,
-            x: Number(note.dataset.x + 1),
-            layer: thisTrackNum,
-            status: 'disable'
-        }
+    const x = Number(note.dataset.x)
+
+    thisTrack[x].push(
+        Note(
+            note.dataset.pitch,
+            x,
+            thisTrackNum,
+            true
+        )
+    )
+    thisTrack[x + 1].push(
+        Note(
+            note.dataset.pitch,
+            x + 1,
+            thisTrackNum,
+            false
+        )
     )
 
     note.classList.add('inserted')
@@ -104,19 +188,25 @@ function saveNote(note) {
 function deleteNote(note) {
     const thisTrack = trackInfos[thisTrackNum]
 
-    thisTrack[note.dataset.x].splice(thisTrack[note.dataset.x].indexOf({
-        pitch: note.dataset.pitch,
-        x: Number(note.dataset.x),
-        layer: note.dataset.layer,
-        status: 'enable'
-    }), 1)
+    const x = Number(note.dataset.x)
 
-    thisTrack[Number(note.dataset.x) + 1].splice(thisTrack[Number(note.dataset.x) + 1].indexOf({
-        pitch: note.dataset.pitch,
-        x: Number(note.dataset.x) + 1,
-        layer: thisTrackNum,
-        status: 'disable'
-    }), 1)
+    thisTrack[x].splice(thisTrack[x].indexOf(
+        Note(
+            note.dataset.pitch,
+            x,
+            thisTrackNum,
+            true
+        )
+    ), 1)
+
+    thisTrack[x + 1].splice(thisTrack[x + 1].indexOf(
+        Note(
+            note.dataset.pitch,
+            x + 1,
+            thisTrackNum,
+            false
+        )
+    ), 1)
 
     note.classList.remove('inserted')
     note.setAttribute("draggable", "false")
@@ -144,49 +234,26 @@ function deleteLongNote(note) {
         backParsedTrack.push(JSON.stringify(value))
     }
 
-    console.log(frontParsedTrack)
-    console.log(backParsedTrack)
-
-
-    console.log(JSON.stringify({
-        pitch: note.dataset.pitch,
-        x: origins[1] + 1,
-        layer: thisTrackNum,
-        status: 'disable'
-    }))
-
-    console.log(JSON.stringify({
-        pitch: note.dataset.pitch,
-        x: origins[0],
-        layer: thisTrackNum,
-        status: 'enable'
-    }))
-
-    console.log(frontParsedTrack.indexOf(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: origins[0],
-            layer: thisTrackNum,
-            status: 'enable'
-        })
-    ))
-
     thisTrack[origins[0]].splice(frontParsedTrack.indexOf(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: origins[0],
-            layer: thisTrackNum,
-            status: 'enable'
-        })
+        JSON.stringify(
+            Note(
+                note.dataset.pitch,
+                origins[0],
+                thisTrackNum,
+                true
+            )
+        )
     ), 1)
 
     thisTrack[origins[1] + 1].splice(backParsedTrack.indexOf(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: origins[1] + 1,
-            layer: thisTrackNum,
-            status: 'disable'
-        })
+        JSON.stringify(
+            Note(
+                note.dataset.pitch,
+                origins[1] + 1,
+                thisTrackNum,
+                false
+            )
+        )
     ), 1)
 
     stopSound(note.dataset.pitch)
@@ -221,7 +288,11 @@ function getLongNotesOrigins(domainIdx, domainPitch) {
 
 let startIdx, endIdx, dragPitch
 
-const isContinued = []
+let isContinued = []
+
+let onMousePitch
+let onMouseX
+let chordModeIsOK = true
 
 function createNote(x, y) {
     const note = document.createElement('div')
@@ -232,7 +303,7 @@ function createNote(x, y) {
     note.classList.add((x % trackOneBlockSize === trackOneBlockSize - 1) ? 'bar-last' : 'normal')
     note.classList.add((y % 12 === 0) ? 'top-end' : 'nothing')
 
-    note.dataset.pitch = `${pitch[(84 - y - 1) % 12] + (Math.floor((84 - y - 1) / 12) + 1)}`
+    note.dataset.pitch = getPitch(y)
     note.dataset.x = x
 
     const thisLayer = trackInfos[thisTrackNum]
@@ -241,20 +312,24 @@ function createNote(x, y) {
     const parsedNextLayer = JSON.stringify(thisLayer[x + 1])
 
     if (parsedLayer.includes(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: x,
-            layer: thisTrackNum,
-            status: 'enable'
-        })
+        JSON.stringify(
+            Note(
+                note.dataset.pitch,
+                x,
+                thisTrackNum,
+                true
+            )
+        )
     )) {
         if(parsedNextLayer.includes(
-            JSON.stringify({
-                pitch: note.dataset.pitch,
-                x: x + 1,
-                layer: thisTrackNum,
-                status: 'disable'
-            })
+            JSON.stringify(
+                Note(
+                    note.dataset.pitch,
+                    x + 1,
+                    thisTrackNum,
+                    false
+                )
+            )
         )) {
             note.classList.add('inserted')
         }else {
@@ -263,13 +338,15 @@ function createNote(x, y) {
         }
     }
 
-    if (parsedLayer.includes(
-        JSON.stringify({
-            pitch: note.dataset.pitch,
-            x: x,
-            layer: thisTrackNum,
-            status: 'disable'
-        })
+    if (x === trackOneBlockSize * trackLongSize - 1 ||parsedLayer.includes(
+        JSON.stringify(
+            Note(
+                note.dataset.pitch,
+                x,
+                thisTrackNum,
+                false
+            )
+        )
     )) {
         const beforeNote = document.querySelector(`[data-x="${x - 1}"][data-pitch="${note.dataset.pitch}"]`)
 
@@ -285,8 +362,16 @@ function createNote(x, y) {
         note.classList.add('inserted', 'long')
     }
 
+    note.addEventListener('mouseenter', () => {
+        onMousePitch = note.dataset.pitch
+        onMouseX = x
+        if (chordMode) {
+            if (chordModeIsOK) renderChord()
+        }
+    })
+
     note.addEventListener('mousedown', () => {
-        if (brushMode) {
+        if (brushMode && !chordMode) {
             if (!note.classList.contains('inserted')) {
                 playNote(note)
                 saveNote(note)
@@ -298,7 +383,7 @@ function createNote(x, y) {
     })
 
     note.addEventListener('dblclick', () => {
-        if (!brushMode) {
+        if (!brushMode && !chordMode) {
             if (!note.classList.contains('inserted')) {
                 playNote(note)
                 saveNote(note)
@@ -309,7 +394,6 @@ function createNote(x, y) {
         }
     })
 
-    // TODO 노트 길이 조절 관련 이벤트 처리
     note.addEventListener('dragend', () => {
         // + 보여주는 범위 없애기
 
@@ -318,9 +402,14 @@ function createNote(x, y) {
         if (!note.classList.contains('inserted')) return
         if (note.classList.contains('long') && !note.classList.contains('end')) return
 
-        if (endIdx - startIdx > 0) {
+        if (endIdx - startIdx > 0) { // 앞으로 늘어난 경우
             let nextLongIdx = startIdx
-            for (let i = Number(startIdx) + 1; i < trackOneBlockSize * trackLongSize; i++) {
+            for (let i = Number(startIdx) + 1; i < trackOneBlockSize * trackLongSize + 1; i++) {
+                if(i === trackOneBlockSize * trackLongSize) {
+                    nextLongIdx = i;
+                    break;
+                }
+
                 const thisNote = document.querySelector(`[data-x="${i}"][data-pitch="${dragPitch}"]`)
                 nextLongIdx = i;
                 if (thisNote.classList.contains('inserted')) break;
@@ -352,12 +441,14 @@ function createNote(x, y) {
 
             // 트랙 내용 변경
             const deleteArray = trackInfos[thisTrackNum][origins[1] + 1]
-            deleteArray.splice(deleteArray.indexOf({
-                pitch: dragPitch,
-                x: origins[1],
-                layer: thisTrackNum,
-                status: 'disable'
-            }), 1)
+            deleteArray.splice(deleteArray.indexOf(
+                Note(
+                    dragPitch,
+                    origins[1],
+                    thisTrackNum,
+                    false
+                )
+            ), 1)
 
             const addArray = trackInfos[thisTrackNum][setEnd + 1]
             addArray.push({
@@ -366,8 +457,8 @@ function createNote(x, y) {
                 layer: thisTrackNum,
                 status: 'disable'
             })
-        }else {
-            if (origins[0] == startIdx) return;
+        }else { // 뒤로 늘어날 경우
+            if (origins[0] == startIdx) return; // 단일 노드일경우
 
             const setEnd = Math.max(Number(endIdx), Number(origins[0]))
             for (let i = setEnd + 1; i <= startIdx; i++) {
@@ -386,20 +477,24 @@ function createNote(x, y) {
 
             // 트랙 내용 변경
             const deleteArray = trackInfos[thisTrackNum][origins[1] + 1]
-            deleteArray.splice(deleteArray.indexOf({
-                pitch: dragPitch,
-                x: origins[1] + 1,
-                layer: thisTrackNum,
-                status: 'disable'
-            }), 1)
+            deleteArray.splice(deleteArray.indexOf(
+                Note(
+                    dragPitch,
+                    origins[1] + 1,
+                    thisTrackNum,
+                    false
+                )
+            ), 1)
 
             const addArray = trackInfos[thisTrackNum][setEnd + 1]
-            addArray.push({
-                pitch: dragPitch,
-                x: setEnd + 1,
-                layer: thisTrackNum,
-                status: 'disable'
-            })
+            addArray.push(
+                Note(
+                    dragPitch,
+                    setEnd + 1,
+                    thisTrackNum,
+                    false
+                )
+            )
         }
     })
     note.addEventListener('dragstart', () => {
@@ -424,7 +519,7 @@ function createKeyNote(index, scale) {
         ([0, 7].includes(index)) ? 'side' : 'nothing'
     )
 
-    keyNote.dataset.pitch = `${pitch[11 - index] + scale}`
+    keyNote.dataset.pitch = getPitch(83 - ((scale - 1) * 12 + 11 - index))
 
     keyNote.addEventListener('mousedown', () => {
         playNote(keyNote)
@@ -571,6 +666,8 @@ function rendering() {
     base.innerHTML = ''
     navigator.innerHTML = ''
 
+    isContinued = []
+
     for (let o = 0; o < trackLongSize; o++) {
         for (let k = 0; k < trackOneBlockSize; k++) {
             const noteList = document.createElement('div')
@@ -653,6 +750,31 @@ function toggleMode(mode) {
     }
 }
 
+function toggleChordHelper() {
+    const chordText = document.querySelector('#chordText')
+    if (chordText.style.display !== "none") { // 있으면
+        console.log('code mode off')
+        chordMode = false;
+
+        chordText.style.display = "none"
+        clearChord()
+    }else { // 없으면
+        console.log('code mode on')
+        chordMode = true;
+
+        chordInfo = defaultChord
+
+        chordText.style.display = "inline-block"
+        chordText.focus()
+        chordText.value = 'M'
+
+        //TODO:   vvv check chord 메서드를 추가해 싱글톤을 완벽하게 정리 시키기
+        renderChord()
+    }
+
+
+}
+
 function resetNavigate() {
     const navigate = document.querySelector("#navigate")
 
@@ -670,6 +792,93 @@ function resetNavigate() {
 
     offAllMIDI()
 }
+
+let chordNotes = []
+
+function clearChord() {
+    for (const chordNote of chordNotes) {
+        if (chordNote) {
+            chordNote.classList.remove("preview")
+            chordNote.classList.remove("conflict")
+        }
+    }
+
+    chordNotes = []
+}
+
+let isConflict
+
+function renderChord() {
+
+    clearChord()
+
+    const isBased = !!chordInfo.scale // 기초 화음을 알려주냐고
+
+    const flat = onMousePitch.charAt(1) === "#"
+
+    const parsedPitch = parsePitch(onMousePitch)
+    const thisPitch = onMousePitch.substring(0, 1 + flat)
+    const scale = onMousePitch.charAt(1 + flat)
+
+    // 노트들 쿼리셀렉터로 집어주기
+
+    for (const note of chordInfo.notes) {
+        chordNotes.push(document.querySelector(`[data-x="${onMouseX}"][data-pitch="${getPitch(
+            (isBased) ? 
+                84 - scale * 12 + 11 - note - pitch.indexOf(chordInfo.scale) :
+                parsedPitch - note
+        )}"]`))
+    }
+
+    if (chordNotes.includes(null)) {
+        clearChord()
+
+        return
+    }
+
+    if (!chordModeIsOK) {
+        clearChord()
+
+        return
+    }
+
+    isConflict = chordNotes.filter((value) => value.classList.contains("inserted")).length > 0
+
+    for (const chordNote of chordNotes) {
+        chordNote.classList.add("preview")
+        if (isConflict) chordNote.classList.add("conflict")
+    }
+
+}
+
+document.addEventListener('click', (e) => {
+    e.preventDefault()
+})
+
+document.addEventListener('mousedown', (e) => {
+    if (chordMode && chordModeIsOK) {
+        if (chordNotes.length > 0 && !isConflict)
+            for (const note of chordNotes) {
+                saveNote(note)
+            }
+
+            rendering()
+        }
+    }
+})
+
+document.addEventListener('mousemove', (e) => {
+
+    const codeText = document.querySelector('#chordText')
+
+    if (codeText) {
+        let mouseX = e.pageX + 28 - scrollX; // document의 x좌표값
+        let mouseY = e.pageY + 20 - scrollY; // document의 y좌표값
+
+        codeText.style.left = mouseX + 'px';
+        codeText.style.top = mouseY + 'px';
+    }
+})
 
 document.addEventListener("DOMContentLoaded", () => {
     // 노트 양산 + 위치표 양산
@@ -827,12 +1036,12 @@ document.addEventListener("DOMContentLoaded", () => {
                         for (const note of parsed.notes) {
                             const thisArray = trackInfos[note.layer][note.x]
 
-                            const noteObj = {
-                                pitch: note.pitch,
-                                x: note.x,
-                                layer: note.layer,
-                                status: note.status,
-                            }
+                            const noteObj = Note(
+                                note.pitch,
+                                note.x,
+                                note.layer,
+                                note.status
+                            )
 
                             thisArray.push(noteObj)
                         }
@@ -870,12 +1079,14 @@ document.addEventListener("DOMContentLoaded", () => {
             trackInfos[value].forEach((array) => {
                 if(array.length !== 0) {
                     for (const node of array) {
-                        note.push({
-                            pitch: node.pitch,
-                            x: node.x,
-                            layer: value,
-                            status: node.status
-                        })
+                        note.push(
+                            Note(
+                                node.pitch,
+                                note.x,
+                                value,
+                                node.status
+                            )
+                        )
                     }
                 }
             })
@@ -903,54 +1114,153 @@ document.addEventListener("DOMContentLoaded", () => {
         URL.revokeObjectURL(url)
     })
 
-    window.addEventListener('keydown', (event) => {
-        if (event.key === ' ') {
-            event.preventDefault()
-            if (!isPlaying){
-                if (!isIndexed) {
-                    navigateAt = 0
-                    navigateX = -scrollX + 136
-                }else {
-                    navigateX = -scrollX + defaultNavigateX
-                    navigateAt = defaultNavigateAt
-                }
+    // 코드 헬퍼 조작작
+    const chordHelper = document.querySelector("#chordText")
 
+    chordHelper.addEventListener('blur', (e) => {
 
+        toggleChordHelper()
+    })
 
-                console.log("play")
+    chordHelper.addEventListener('input', () => {
+        try {
+            const chord = chordHelper.value; // String
 
-                console.log(trackInfos)
+            const chordRegax = /^([A-G])?([Mm])?(\w*)?$/;
 
-                playNavigateId = setInterval(() => playNavigate(bpm.value), 10)
-                playMusic()
-                playMusicId = setInterval(playMusic, 60 / bpm.value * 1000 / beat.value)
-            }else {
+            const matches = chord.match(chordRegax)
 
-                console.log("stop!")
-                stop()
-                offAllMIDI()
+            if (matches[1] === matches[2] &&
+                matches[2] === matches[3] &&
+                matches[3] === undefined ||
+                matches[3] !== undefined &&
+                !["aug", "sus2", "sus4", "dim", "7", "9", "11", "13"].includes(matches[3])) {
+                throw "u dont no chord?"
             }
 
-            isPlaying = !isPlaying
+            const setChord = {
+                scale: matches[1],
+                m: matches[2],
+                additional: matches[3],
+                notes: [0, 4, 7] // default : M
+            }
+
+            let M3rd = true
+
+            if (setChord.additional !== undefined){
+                if (!isNaN(setChord.additional)) { // 도미넌트 화음류 (add는 취급 안해요)
+                    let dominant = Number(setChord.additional)
+
+                    if (dominant >= 7) {
+                        setChord.notes.push(10)
+                    }
+                    if (dominant >= 9) {
+                        setChord.notes.push(14)
+                    }
+                    if (dominant >= 11) {
+                        setChord.notes.push(17)
+                    }
+                    if (dominant >= 13) {
+                        setChord.notes.push(21)
+                    }
+
+                }else {
+                    if (setChord.additional === "aug") {
+                        setChord.notes[2] += 1
+                    }
+                    if (setChord.additional.startsWith("sus")) {
+                        let num = setChord.additional.charAt(3)
+
+                        if (num === "2") {
+                            setChord.notes[1] -= 2
+                        }else {
+                            setChord.notes[1] += 1
+                        }
+
+                        M3rd = false;
+                    }
+                    if (setChord.additional === "dim") {
+                        setChord.notes[1] -= 1
+                        setChord.notes[2] -= 1
+                    }
+                }
+            }
+
+            if (M3rd && setChord.m === "m") { // sus가 장 3도를 죽인다면 당연히 m 의 의미가 없어짐
+                setChord.notes[1] -= 1
+            }else if(setChord.m === "M") {
+
+                if (setChord.notes.length > 3) {
+                    setChord.notes[3] += 1
+                }
+            }
+
+            chordInfo = setChord
+
+
+            chordModeIsOK = true;
+            chordHelper.style.backgroundColor = "#ffffffdd"
+            renderChord()
+        }catch (e) {
+            chordModeIsOK = false;
+            chordHelper.style.backgroundColor = "#ff000099"
+            renderChord()
+        }
+
+    })
+
+    window.addEventListener('keydown', (event) => {
+        if (event.key === ' ') {
+            if (!chordMode) {
+                event.preventDefault()
+                if (!isPlaying){
+                    if (!isIndexed) {
+                        navigateAt = 0
+                        navigateX = -scrollX + 136
+                    }else {
+                        navigateX = -scrollX + defaultNavigateX
+                        navigateAt = defaultNavigateAt
+                    }
+
+
+
+                    console.log("play")
+
+                    playNavigateId = setInterval(() => playNavigate(bpm.value), 10)
+                    playMusic()
+                    playMusicId = setInterval(playMusic, 60 / bpm.value * 1000 / beat.value)
+                }else {
+
+                    console.log("stop!")
+                    stop()
+                    offAllMIDI()
+                }
+
+                isPlaying = !isPlaying
+            }
         }
 
         if (event.key === 'Escape') {
-            resetNavigate()
+            if (chordMode) {
+                chordHelper.blur()
+            }else {
+                resetNavigate()
+            }
         }
 
-        if (event.key.toLowerCase() === 'b') {
+        if (!chordMode && event.key.toLowerCase() === 'b') {
             toggleMode("brush")
 
             console.log(`brush mode ${(brushMode) ? "on" : "off"}`)
         }
 
-        if (event.key.toLowerCase() === 'm') {
+        if (!chordMode && event.key.toLowerCase() === 'm') {
             toggleMode("midi")
 
             console.log(`midi mode ${(midiMode) ? "on" : "off"}`)
         }
 
-        if (['<', ',', '>', '.'].includes(event.key)) {
+        if (!chordMode && ['<', ',', '>', '.'].includes(event.key)) {
             let idx = ['<', ',', '>', '.'].indexOf(event.key)
 
             offAllMIDI()
@@ -959,7 +1269,13 @@ document.addEventListener("DOMContentLoaded", () => {
             else if (idx > 2 && midiScale < 7) midiScale++
         }
 
-        if (keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
+        if (!chordMode && event.key.toLowerCase() === 'c') {
+            event.preventDefault()
+            offAllMIDI()
+            toggleChordHelper()
+        }
+
+        if (!chordMode && keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
             const index = keyBoardMIDIList.indexOf(event.key.toLowerCase())
 
             if(!pressedKeyBoard[index]) {
@@ -973,7 +1289,7 @@ document.addEventListener("DOMContentLoaded", () => {
     })
 
     window.addEventListener('keyup', (event) => {
-        if (keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
+        if (!chordMode && keyBoardMIDIList.indexOf(event.key.toLowerCase()) !== -1 && midiMode) {
             const index = keyBoardMIDIList.indexOf(event.key.toLowerCase())
 
             if (pressedKeyBoard[index]) {

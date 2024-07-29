@@ -857,7 +857,7 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('mousedown', (e) => {
     if (chordMode && chordModeIsOK) {
-        if (chordNotes.length > 0 && !isConflict)
+        if (chordNotes.length > 0 && !isConflict) {
             for (const note of chordNotes) {
                 saveNote(note)
             }

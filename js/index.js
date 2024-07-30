@@ -348,7 +348,6 @@ function createNote(x, y) {
             )
         )
     )) {
-        console.log(isContinued)
         const beforeNote = document.querySelector(`[data-x="${x - 1}"][data-pitch="${note.dataset.pitch}"]`)
 
         if (isContinued[y]) {

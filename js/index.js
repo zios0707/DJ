@@ -338,7 +338,7 @@ function createNote(x, y) {
         }
     }
 
-    if (x === trackOneBlockSize * trackLongSize - 1 ||parsedLayer.includes(
+    if (x === trackOneBlockSize * trackLongSize - 1 || parsedLayer.includes(
         JSON.stringify(
             Note(
                 note.dataset.pitch,
@@ -348,9 +348,10 @@ function createNote(x, y) {
             )
         )
     )) {
+        console.log(isContinued)
         const beforeNote = document.querySelector(`[data-x="${x - 1}"][data-pitch="${note.dataset.pitch}"]`)
 
-        if (isContinued) {
+        if (isContinued[y]) {
             beforeNote.classList.add('end')
             isContinued[y] = false
         }
@@ -859,6 +860,7 @@ document.addEventListener('mousedown', (e) => {
     if (chordMode && chordModeIsOK) {
         if (chordNotes.length > 0 && !isConflict) {
             for (const note of chordNotes) {
+                playNote(note)
                 saveNote(note)
             }
 

@@ -851,6 +851,16 @@ function renderChord() {
 
 }
 
+function checkDisplaySize() {
+    const blind = document.querySelector("#blind")
+
+    if (window.devicePixelRatio === 1) {
+        blind.style.display = "none"
+    }else {
+        blind.style.display = "flex"
+    }
+}
+
 document.addEventListener('click', (e) => {
     e.preventDefault()
 })
@@ -1302,6 +1312,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     })
+
+    window.addEventListener('resize', () => {
+        checkDisplaySize()
+    })
+
+    checkDisplaySize()
 
     alert("확대율을 80%로 설정하는 것을 추천합니다.")
 })

@@ -1093,7 +1093,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         note.push(
                             Note(
                                 node.pitch,
-                                note.x,
+                                node.x,
                                 value,
                                 node.status
                             )
